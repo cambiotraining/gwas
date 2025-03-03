@@ -1,0 +1,649 @@
+---
+pagetitle: GWAS
+---
+
+# 1000G
+
+:::{.callout-tip}
+#### Learning objectives
+
+- TODO
+:::
+
+## Setup
+
+```{r}
+# load libraries
+library(tidyverse)
+library(janitor)
+```
+
+## Individual metadata
+
+```{r}
+# read sample info file
+sample_info <- read_tsv("http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20200731.ALL.ped") |> 
+  clean_names()
+
+# read sample metadata
+# we get a warning because the original file had two trailing tabs on the header
+panel <- read_tsv("http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel",
+                  col_select = 1:4) |> 
+  clean_names()
+
+# filter
+sample_info <- sample_info |> 
+  # keep only unrelated individuals
+  # 'other_comments' mostly refers to uncertain related individuals
+  filter(relationship == "unrel" & other_comments == 0) |> 
+  # keep only phase 3 genotypes (to reduce sample size for demo)
+  filter(phase_3_genotypes == 1)
+
+# join with super-population information
+sample_info <- sample_info |> 
+  left_join(panel |> select(sample, super_pop), 
+            by = c("individual_id" = "sample"))
+  
+# Save
+sample_info |> 
+  write_tsv("data/sample_info.tsv")
+```
+
+## Trait SNPs
+
+To simulate traits, we exported summary tables from GWAS catalogue: 
+
+- Binary trait: type 2 diabetes , study accession [GCST006801](https://www.ebi.ac.uk/gwas/studies/GCST006801).
+- Binary trait: chronotype ("morning person"), study accession [GCST007565](https://www.ebi.ac.uk/gwas/studies/GCST007565). 
+- Continuous trait: caffeine consumption ("mg/day"), study accession [GCST001032](https://www.ebi.ac.uk/gwas/studies/GCST001032).
+- Continuous trait: blood pressure (mm Hg) study accession [GCST001235](https://www.ebi.ac.uk/gwas/studies/GCST001235)
+
+We also download the list of SNPs from the 1000G server.
+We download the `wgs` file, which does not contain the actual genotypes, but contains all the SNPs, their location and allele frequency:
+
+```bash
+wget -O data/vcf/all.snp.info.vcf.gz "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.wgs.shapeit2_integrated_v1a.GRCh38.20181129.sites.vcf.gz"
+```
+
+We use this to create a subset of SNPs that we later subset from the large VCF files. 
+As this is not a standard VCF, we read this with standard R functions.
+
+```{r}
+# we only read a few of the columns
+snps <- read_tsv("data/vcf/all_snp_info.vcf.gz", 
+                 comment = "#", 
+                 col_select = c(1, 2, 4, 5),
+                 col_names = FALSE)
+colnames(snps) <- c("chrom", "pos", "ref", "alt")
+```
+
+We then clean the SNPs associated with each trait.
+
+### Type 2 diabetes
+
+```{r}
+# read gwas catalogue data
+t2d <- read_tsv("data/gwas_catalogue/t2d_GCST006801.tsv",
+                       na = "") |> 
+  clean_names()
+
+t2d <- t2d |> 
+  select(chrom = chr_id, pos = chr_pos, effect = or_or_beta, 
+         risk_allele = strongest_snp_risk_allele) |> 
+  mutate(chrom = paste0("chr", chrom),
+         risk_allele = str_remove(risk_allele, ".*-"))
+
+# collapse linked SNPs
+t2d <- t2d |> 
+  arrange(chrom, pos) |> 
+  group_by(chrom) |> 
+  # this is so smart! Thanks ChatGPT
+  mutate(cluster = cumsum(c(1, diff(pos) > 250e3))) |> 
+  group_by(chrom, cluster) |> 
+  slice_max(effect) |> 
+  ungroup() |> 
+  select(-cluster)
+
+# filtered SNPs
+t2d_snps <- snps |> 
+  inner_join(t2d, by = c("chrom", "pos"))
+
+# adjust effect sizes
+t2d_snps <- t2d_snps |> 
+  mutate(effect = ifelse(ref == risk_allele, 
+                         1/effect, effect))
+
+# write to file
+t2d_snps |> 
+  write_tsv("data/gwas_catalogue/t2d_effects.tsv")
+```
+
+
+### Chronotype
+
+```{r}
+# read gwas catalogue data
+chronotype <- read_tsv("data/gwas_catalogue/chronotype_GCST007565.tsv",
+                       na = "") |> 
+  clean_names()
+
+chronotype <- chronotype |> 
+  select(chrom = chr_id, pos = chr_pos, effect = or_or_beta, 
+         risk_allele = strongest_snp_risk_allele) |> 
+  mutate(chrom = paste0("chr", chrom),
+         risk_allele = str_remove(risk_allele, ".*-"))
+
+# collapse linked SNPs
+chronotype <- chronotype |> 
+  arrange(chrom, pos) |> 
+  group_by(chrom) |> 
+  # this is so smart! Thanks ChatGPT
+  mutate(cluster = cumsum(c(1, diff(pos) > 250e3))) |> 
+  group_by(chrom, cluster) |> 
+  slice_max(effect) |> 
+  ungroup() |> 
+  select(-cluster)
+
+# filtered SNPs
+chronotype_snps <- snps |> 
+  inner_join(chronotype, by = c("chrom", "pos"))
+
+# adjust effect sizes
+chronotype_snps <- chronotype_snps |> 
+  mutate(effect = ifelse(ref == risk_allele, 
+                         1/effect, effect))
+
+# write to file
+chronotype_snps |> 
+  write_tsv("data/gwas_catalogue/chronotype_effects.tsv")
+```
+
+### Caffeine consumption
+
+```{r}
+# read gwas catalogue data
+coffee <- read_tsv("data/gwas_catalogue/coffee_GCST001032.tsv",
+                       na = "") |> 
+  clean_names()
+
+coffee <- coffee |> 
+  select(chrom = chr_id, pos = chr_pos, effect = or_or_beta, 
+         risk_allele = strongest_snp_risk_allele) |> 
+  mutate(chrom = paste0("chr", chrom),
+         risk_allele = str_remove(risk_allele, ".*-"))
+
+# collapse linked SNPs
+coffee <- coffee |> 
+  arrange(chrom, pos) |> 
+  group_by(chrom) |> 
+  # this is so smart! Thanks ChatGPT
+  mutate(cluster = cumsum(c(1, diff(pos) > 250e3))) |> 
+  group_by(chrom, cluster) |> 
+  slice_max(effect) |> 
+  ungroup() |> 
+  select(-cluster)
+
+# filtered SNPs
+coffee_snps <- snps |> 
+  inner_join(coffee, by = c("chrom", "pos"))
+
+# adjust effect sizes
+coffee_snps <- coffee_snps |> 
+  mutate(effect = ifelse(ref == risk_allele, 
+                         -effect, effect))
+
+# write to file
+coffee_snps |> 
+  write_tsv("data/gwas_catalogue/coffee_effects.tsv")
+```
+
+### Blood pressure
+
+```{r}
+# read gwas catalogue data
+blood <- read_tsv("data/gwas_catalogue/blood_GCST001235.tsv",
+                       na = "") |> 
+  clean_names()
+
+blood <- blood |> 
+  select(chrom = chr_id, pos = chr_pos, effect = or_or_beta, 
+         risk_allele = strongest_snp_risk_allele) |> 
+  mutate(chrom = paste0("chr", chrom),
+         risk_allele = str_remove(risk_allele, ".*-"))
+
+# collapse linked SNPs
+blood <- blood |> 
+  arrange(chrom, pos) |> 
+  group_by(chrom) |> 
+  # this is so smart! Thanks ChatGPT
+  mutate(cluster = cumsum(c(1, diff(pos) > 250e3))) |> 
+  group_by(chrom, cluster) |> 
+  slice_max(effect) |> 
+  ungroup() |> 
+  select(-cluster)
+
+# filtered SNPs
+blood_snps <- snps |> 
+  inner_join(blood, by = c("chrom", "pos"))
+
+# adjust effect sizes
+blood_snps <- blood_snps |> 
+  mutate(effect = ifelse(ref == risk_allele, 
+                         -effect, effect))
+
+# write to file
+blood_snps |> 
+  write_tsv("data/gwas_catalogue/blood_effects.tsv")
+```
+
+
+## Subset SNPs
+
+We now subsample the full list of SNPs to a manageable size for teaching.
+One thing we need to ensure is that the causal SNPs for our traits are included. 
+To make the regional plots more interesting, we sample SNPs densely around the causal SNPs.
+We do this by performing an interval join 500Kb around each causal SNP.
+The disadvantage of this is that it causes some distortions in the p-value histogram and Q-Q plot, but nothing major.
+
+We start by creating intervals for each SNP
+
+```{r}
+causal_intervals <- bind_rows(chronotype_snps, coffee_snps, 
+                    blood_snps, t2d_snps) |> 
+  mutate(start = pos - 250e3, end = pos + 250e3) |> 
+  select(chrom, start, end)
+```
+
+We then create an interval join between this table and the full SNPs table:
+
+```{r}
+causal_snps <- snps |> 
+  select(chrom, pos) |> 
+  inner_join(causal_intervals, 
+             by = join_by(chrom, between(pos, start, end))) |> 
+  # we don't need these columns
+  select(-start, -end)
+``` 
+
+Then, we randomly sample 5% of the SNPs, and join back this set of SNPs:
+
+```{r}
+set.seed(20250225)
+snps_sample <- snps |> 
+  # remove X chromosome
+  filter(chrom != "chrX") |> 
+  # sample 5% of SNPs
+  group_by(chrom) |> 
+  sample_frac(0.05) |> 
+  ungroup() |> 
+  # bring back the causal SNPs
+  full_join(causal_snps, by = c("chrom", "pos")) |> 
+  # sort and ensure chromosome is a factor
+  arrange(chrom, pos) |> 
+  mutate(chrom = factor(chrom, levels = paste0("chr", 1:22)))
+```
+
+```{r}
+snps_sample |> 
+  count(chrom) |> 
+  ggplot(aes(n, chrom)) + geom_col()
+  
+snps_sample |> 
+  mutate(y = rnorm(n())) |> 
+  sample_n(10000) |> 
+  ggplot(aes(pos, y)) +
+  geom_point(shape = "|") +
+  facet_grid( ~ chrom, scale = "free_x", space = "free_x")
+  
+snps_sample |> 
+  sample_n(1000e3) |> 
+  ggplot(aes(pos/1e6, chrom)) +
+  geom_bin_2d(binwidth = c(1, 1)) +
+  theme_classic()
+```
+
+Finally, we write this list of SNPs to a file to later subset the VCF files with `bcftools`:
+
+```{r}
+snps_sample |> 
+  write_tsv("data/1000G_filtered_snps.tsv", 
+            col_names = FALSE)
+```
+
+
+## Process 1000G data
+
+The latest version of these data are published in [Byrska-Bishop et al. (2022)](https://doi.org/10.1016/j.cell.2022.08.004). 
+The data are provided as the "[1000 Genomes 30x on GRCh38](https://www.internationalgenome.org/data-portal/data-collection/30x-grch38)" data collection.
+
+We download slightly older files, which only contain biallelic calls (to save space/time). 
+For each chromosome, we get the genotype file (`.vcf`) and its index (`.tbi`):
+
+```bash
+# this takes a long time to run...
+for i in {1..22}
+do
+  wget -O chr${i}.vcf.gz "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz"
+  wget -O chr${i}.vcf.gz.tbi "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz.tbi"
+done
+```
+
+Then, we merge all the VCF files, as well as filter them for the SNPs and samples selected above:
+
+```bash
+threads=24  # use 24 CPUs
+
+# temporarily create a list of IDs from sample_info file
+cut -f 2 data/sample_info.tsv | tail -n +2 > temp_filter_ids.tsv
+
+# create variable with files listed numerically rather than alphabetical
+# otherwise we will get chr1, chr10, chr11, etc...
+vcf_files=$(ls data/vcf/chr*.vcf.gz | sort -V)
+
+# concatenate and subset the files
+bcftools concat \
+  --allow-overlaps \
+  --regions-file data/1000G_filtered_snps.tsv \
+  --threads $threads \
+  $vcf_files \
+  | bcftools view \
+  --samples-file temp_filter_ids.tsv \
+  --output-file data/vcf/1000G_subset.vcf.gz \
+  --output-type z \
+  --threads $threads
+
+# remove temporary file
+rm temp_filter_ids.tsv
+
+# index VCF
+bcftools index --tbi --threads $threads data/vcf/1000G_subset.vcf.gz
+```
+
+Finally, we extract the genotypes of target (causal) variants into a TSV file to later simulate our traits: 
+
+```bash
+for trait in chronotype t2d coffee blood 
+do 
+  # create file headers
+  samples=$(bcftools query -l data/vcf/1000G_subset.vcf.gz | tr '\n' '\t' | sed 's/\t$//')
+  printf "snp\t$samples\n" > data/gwas_catalogue/${trait}_geno.tsv
+
+  # temporary regions file from SNP effects file
+  cut -f 1,2 data/gwas_catalogue/${trait}_effects.tsv | \
+    tail -n +2 \
+    > temp_${trait}_snps.tsv
+  
+  # create TSV file numerically coding genotypes as 0/1/2
+  bcftools query \
+    -f '%CHROM\t%POS[\t%GT]\n' \
+    --regions-file temp_${trait}_snps.tsv \
+    data/vcf/1000G_subset.vcf.gz |\
+    # replace the first tab with underscore (to get joint SNP id)
+    sed 's/\t/_/' |\
+    # recode genotypes as numeric
+    sed 's/0|0/0/g' | sed 's/1|0/1/g' | sed 's/0|1/1/g' | sed 's/1|1/2/g' \
+    >> data/gwas_catalogue/${trait}_geno.tsv
+  
+  # clean up temp file
+  rm temp_${trait}_snps.tsv
+done
+```
+
+## Simulating traits
+
+Now we have the pieces to simulate our traits: 
+
+- The genotypes
+- The effect sizes
+
+The following is a fairly long function to simulate a trait based on a genotype matrix and effect size vector.
+
+```{r}
+simulate_trait <- function(genotype_matrix, 
+                           effect_sizes, 
+                           h2 = 0.5, 
+                           covariates = NULL, 
+                           covariate_effects = NULL, 
+                           pcs = NULL, 
+                           pc_variance_explained = 0.02, 
+                           prevalence = NULL) {
+  
+  # Sanity checks
+  if (!is.matrix(genotype_matrix) || !is.numeric(genotype_matrix)) 
+    stop("genotype_matrix must be a numeric matrix.")
+  
+  if (length(effect_sizes) != ncol(genotype_matrix)) 
+    stop("Length of effect_sizes must match the number of columns in genotype_matrix.")
+  
+  if (!is.numeric(h2) || h2 <= 0 || h2 > 1) 
+    stop("h2 must be a numeric value between 0 and 1.")
+  
+  if (!is.null(prevalence) && (!is.numeric(prevalence) || prevalence <= 0 || prevalence >= 1)) 
+    stop("prevalence must be a numeric value between 0 and 1 if specified.")
+  
+  if (!is.numeric(pc_variance_explained) || pc_variance_explained < 0 || pc_variance_explained > 1) 
+    stop("pc_variance_explained must be a numeric value between 0 and 1.")
+  
+  if (!is.null(covariates)) {
+    if (!is.matrix(covariates) || !is.numeric(covariates)) 
+      stop("covariates must be a numeric matrix. Use model.matrix() if necessary.")
+    
+    if (is.null(covariate_effects)) {
+      covariate_effects <- rnorm(ncol(covariates), mean = 0, sd = 0.1)
+    } else if (length(covariate_effects) != ncol(covariates)) {
+      stop("Length of covariate_effects must match the number of columns in covariates.")
+    }
+  }
+  
+  if (!is.null(pcs)) {
+    if(!is.matrix(pcs) || !is.numeric(pcs)) {
+      stop("pcs must be a numeric matrix.")
+    }
+  }
+  
+  if (!is.null(prevalence)) {
+    # we should transform OR to liability scale somehow
+    # see https://doi.org/10.1007/s10519-021-10042-2
+    # using Pawitan transformation
+    p = colSums(genotype_matrix)/(nrow(genotype_matrix)*2)
+    var = 2*p*(1-p)*log(effect_sizes)^2
+    var = var/(var + pi^2 / 3)
+    effect_sizes <- ifelse(log(effect_sizes) > 0, sqrt(var), -sqrt(var))
+  }
+  
+  # Compute genetic component
+  genetic_component <- genotype_matrix %*% effect_sizes
+  
+  # Compute covariate effects
+  covariate_component <- ifelse(!is.null(covariates),
+                                covariates %*% covariate_effects,
+                                0)
+  
+  # Compute ancestry effects
+  ancestry_component <- 0
+  if (!is.null(pcs)) {
+    pc_effects <- sqrt(pc_variance_explained / ncol(pcs)) * rnorm(ncol(pcs), mean = 0, sd = 1)
+    ancestry_component <- pcs %*% pc_effects
+  }
+  
+  # Compute trait value (equivalent to "liability" for a binary trait)
+  trait_values <- genetic_component + covariate_component + ancestry_component
+  
+  # Adjust variance for heritability
+  var_g <- var(trait_values)
+  var_e <- (1 - h2) / h2 * var_g
+  environmental_noise <- rnorm(nrow(genotype_matrix), mean = 0, sd = sqrt(var_e))
+
+  trait_values <- trait_values + environmental_noise
+  
+  # Convert to binary trait if prevalence is provided
+  if (!is.null(prevalence)) {
+    trait_values <- (trait_values - mean(trait_values))/sd(trait_values)
+    threshold <- qnorm(1 - prevalence)
+    return(as.numeric(trait_values > threshold))
+  }
+  
+  return(as.numeric(trait_values))
+}
+```
+
+We now simulate trait data (this can later be generalised to a function):
+
+```{r}
+# effect sizes
+effects <- read_tsv("data/gwas_catalogue/t2d_effects.tsv") |> 
+  mutate(snp = paste(chrom, pos, sep = "_")) |> 
+  select(snp, effect) |> 
+  column_to_rownames("snp") |> 
+  as.matrix()
+
+genos <- read_tsv("data/gwas_catalogue/t2d_geno.tsv", 
+                  col_types = cols(snp = "c", .default = "i"))
+
+# convert to transposed matrix
+genos <- genos |> column_to_rownames("snp") |> as.matrix() |> t()
+
+# simulate trait
+trait <- simulate_trait(genos, effects[, 1], h2 = 0.0005)
+
+# visual sanity check
+cbind(genos, trait = trait) |> 
+  as_tibble(rownames = "sample") |> 
+  pivot_longer(matches("chr"), names_to = "snp", values_to = "genotype") |> 
+  group_by(snp, genotype) |> 
+  summarise(trait = mean(trait)) |> 
+  ungroup() |> 
+  ggplot(aes(factor(genotype), trait)) +
+  geom_line(aes(group = snp))
+```
+
+Run simulation for all traits:
+
+```{r}
+sim_config <- tibble(
+  trait = c("coffee", "blood", "chronotype", "t2d"),
+  h2 = c(0.5, 0.2, 0.3, 0.4),
+  prevalence = c(NA, NA, 0.15, 0.2)
+)
+
+# loop through
+set.seed(20250227)
+sim_traits <- pmap(sim_config, function(trait, h2, prevalence){
+
+  # effect sizes
+  effects <- read_tsv(paste0("data/gwas_catalogue/", trait, "_effects.tsv")) |> 
+    mutate(snp = paste(chrom, pos, sep = "_")) |> 
+    pull(effect)
+
+  genos <- read_tsv(paste0("data/gwas_catalogue/", trait, "_geno.tsv"), 
+                    col_types = cols(snp = "c", .default = "i"))
+
+  # convert to transposed matrix
+  genos <- genos |> column_to_rownames("snp") |> as.matrix() |> t()
+
+  # simulate trait
+  if (is.na(prevalence)) {
+    sim <- simulate_trait(genos, effects, h2 = h2)
+  } else {
+    sim <- simulate_trait(genos, effects, h2 = h2, prevalence = prevalence)
+  }
+  
+  out <- tibble(id = rownames(genos))
+  # randomly add some missing values
+  out[[trait]] <- ifelse(runif(length(sim)) < 0.01, NA, sim)
+    
+  return(out)
+})
+names(sim_traits) <- sim_config$trait
+
+pheno <- sim_traits |> 
+  reduce(full_join, by = "id") |> 
+  # scale up continuous traits to realistic values
+  mutate(coffee = 180 + coffee,
+         blood = 80 + blood)
+
+# visual sanity check
+pheno |> 
+  pivot_longer(-id, 
+               names_to = "trait", 
+               values_to = "value") |> 
+  ggplot(aes(value)) + 
+  geom_histogram() +
+  facet_grid(~ trait, scale = "free_x")
+```
+
+Finally, we write a PLINK-compatible phenotype file: 
+
+```{r}
+sample_info <- read_tsv("data/sample_info.tsv")
+
+sample_info |> 
+  select(family_id, individual_id) |> 
+  left_join(pheno, by = c("individual_id" = "id")) |> 
+  rename(FID = family_id, IID = individual_id) |> 
+  # recode cases/controls as 1/2, which PLINK uses
+  mutate(chronotype = ifelse(chronotype == 0, 1, 2)) |> 
+  write_tsv("data/phenotypes.tsv")
+```
+
+There's some improvements to be made to these simulations: 
+
+- For continuous traits, currently the simulated trait is centred at zero, but might be good to add an intercept so the output looks like a "realistic" trait value.
+- When heritability is set to a very low value, this effectively results in a huge error variance, which puts the trait off the scale. Is there a way to improve this?
+- I've noticed some artefacts when setting heritability to very low values (effectively zero), where homozygous alternative individuals had more variance in trait compared to the others. The expectation would be that they should all have the same variance.
+
+## Convert VCF to plink
+
+Before converting our VCF, we set some genotypes to missing randomly (for teaching purposes):
+
+```bash
+bcftools view -h data/vcf/1000G_subset.vcf.gz > temp.vcf
+bcftools view -H data/vcf/1000G_subset.vcf.gz | awk '
+BEGIN {srand(20250301); OFS="\t"} 
+{
+    # 20% of SNPs get a missing rate up to 30%, others get 0%
+    missing_rate = (rand() < 0.2) ? rand() * 0.3 : 0  
+    
+    for (i=10; i<=NF; i++) {  
+        if (rand() < missing_rate) {  
+            sub(/[0-9]\/[0-9]|[0-9]\|[0-9]/, "./.", $i)
+        }
+    }
+    print
+}' >> temp.vcf
+```
+
+We convert our VCF file to both new and old (version 1) PLINK files. 
+We retain the information about our samples by creating a temporary "fam" file from our `sample_info.tsv` table. 
+
+```bash
+# temporary FAM file setting genotypes to missing
+tail -n +2 data/sample_info.tsv | cut -f 1,2,3,4,5,6 | sed 's/0$/NA/' > temp.fam
+
+# BED format for PLINK1 or software that only supports it
+plink2 \
+  --vcf temp.vcf \
+  --fam temp.fam \
+  --make-bed \
+  --out data/plink/1000G_subset
+
+# new format
+plink2 \
+  --vcf temp.vcf \
+  --fam temp.fam \
+  --make-pgen \
+  --out data/plink/1000G_subset
+
+# remove temporary files
+rm temp.vcf temp.fam
+```
+
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- TODO
+:::

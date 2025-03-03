@@ -1,5 +1,6 @@
 book:
   chapters:
-    - part: "Pre-processing"
+    - part: "GWAS"
       chapters:
-        - materials/01-qc.md
+        - materials/01-qc.qmd
+        - materials/02-association.qmd

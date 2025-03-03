@@ -1,0 +1,243 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Quality control
+
+:::{.callout-tip}
+#### Learning objectives
+
+- Become familiar with the PLINK software and its file formats.
+- Use PLINIK for quality control of genotype data.
+- Identify population structure confounders.
+:::
+
+
+## Example data
+
+We will use simulated traits, based on real GWAS results on continuous and binary traits: 
+
+- Binary trait: type 2 diabetes , study accession [GCST006801](https://www.ebi.ac.uk/gwas/studies/GCST006801).
+- Binary trait: chronotype ("morning person"), study accession [GCST007565](https://www.ebi.ac.uk/gwas/studies/GCST007565). 
+- Continuous trait: caffeine consumption ("mg/day"), study accession [GCST001032](https://www.ebi.ac.uk/gwas/studies/GCST001032).
+- Continuous trait: blood pressure (mm Hg) study accession [GCST001235](https://www.ebi.ac.uk/gwas/studies/GCST001235)
+
+The genotype data we are using is from the [1000 Genomes project](https://www.internationalgenome.org/), specifically the [30x data](https://www.internationalgenome.org/data-portal/data-collection/30x-grch38) from [Byrska-Bishop et al. (2022)](https://doi.org/10.1016/j.cell.2022.08.004).
+
+We have down-sampled the SNVs, to retain ~6M out of the ~70M available.
+
+## Working with `plink`
+
+The PLINK software provides many utilities to work with genotype data. 
+The most common input file formats used by PLINK, which are also supported by other related GWAS analysis tools are the BED/BIM/FAM trio of files:
+
+TODO: briefly explain the formats
+
+```{r}
+# load the libraries
+library(tidyverse) # data manipulation
+library(patchwork) # to compose plots
+library(janitor)   # to clean column names
+theme_set(theme_minimal())
+```
+
+### Running `plink`
+
+PLINK has many functions available, but we will start with a simple one that calculates the minor allele frequency for each of our variants: 
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --freq
+```
+
+You can see the structure of the command is: 
+
+- `plink`: the name of the program.
+- `--pfile`: input file name **prefix**. PLINK will then look for files with `.pgen`, `.psam` and `.pvar` extensions that all share the prefix specified here. 
+- `--freq`: option to calculate allele frequencies, detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats#freq).
+- `--out`: output file name **prefix**. PLINK will generate all the output files with this common prefix and a file extension specific to each command. In this example we only get an allele frequency file (detailed below). You can omit this option, in which case PLINK will output the files to the same directory as specified with `--pfile`. However, it's good practice to keep our results files separate from the original raw data.
+
+Most PLINK analysis options output their results to a file with an extension that is specific to that option.
+In the example of the `--freq` option, it outputs a file with `.afreq` extension. 
+This is detailed in detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats) of each option.
+
+These files are standard text files with **tab-separated values (TSV)**, and therefore can be read and analysed in R or Python. 
+For example, below we read the `.afreq` file produced by the previous command and make a histogram of allele frequencies in our population.
+
+```{r}
+# read the allele frequency file
+afreq <- read_tsv("results/1000G_subset.afreq") |> 
+  # PLINK's column names are always upppercase
+  # this makes them lowercase, easier to type
+  clean_names()
+
+# inspect the file
+head(afreq)
+
+# plot a histogram of reference allele frequencies
+afreq |> 
+  ggplot(aes(alt_freqs)) +
+  geom_histogram(binwidth = 0.01)
+  
+# add a column of minor allele frequency
+afreq <- afreq |> 
+  mutate(maf = ifelse(alt_freqs > 0.5, 1 - alt_freqs, alt_freqs)) 
+
+# MAF histogram
+afreq |> 
+  ggplot(aes(maf)) +
+  geom_histogram(binwidth = 0.01)
+
+# summary quantiles
+summary(afreq$maf)
+```
+
+We can see many SNPs have very low frequency. 
+In fact, some of them are not variable at all in our population of samples!
+We can quickly tabulate how many SNPs are above the commonly-used 1% threshold of allele frequency: 
+
+```{r}
+table(afreq$alt_freqs > 0.01)
+```
+
+It seems like we will have to do some filtering before proceesing with our analysis...
+
+:::{.callout-exercise}
+#### Missing data 
+
+- Look at [PLINK's documentation](https://www.cog-genomics.org/plink/2.0/basic_stats) to find the option that calculates sample-based and variant-based missing data reports. 
+- Run PLINK with that option, saving the output with prefix `results/1000G_subset`. 
+- Look at the top lines of the output files from the terminal (using `head`), to see if you understand their structure. 
+  You can also consult PLINK's [file format documentation](https://www.cog-genomics.org/plink/2.0/formats). 
+- Import both tables into R and use the `summary()` function to investigate the range of missingness across samples and variants.
+
+:::{.callout-answer}
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --missing
+```
+
+This generates two files with extension `.smiss` (for sample-missingness report) and `.vmiss` (for variant-missingness report).
+We import both of these into our R session:
+
+```{r}
+smiss <- read_tsv("results/1000G_subset.smiss") |> 
+  clean_names()
+  
+vmiss <- read_tsv("results/1000G_subset.vmiss") |> 
+  clean_names()
+```
+
+We now explore how many samples have missing genotypes: 
+
+```{r}
+smiss |> filter(missing_ct > 0)
+vmiss |> filter(missing_ct > 0)
+```
+
+:::
+:::
+
+## Hardy–Weinberg
+
+Another quality control step is to check whether SNPs significantly deviate from Hardy-Weinberg equilibrium, which is expected if individuals mate randomly. 
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --maf 0.01 --hardy
+```
+
+This outputs a file with `.hardy` extension, which we can read into R: 
+
+
+```{r}
+hardy <- read_tsv("results/1000G_subset.hardy") |> 
+  clean_names()
+
+hardy |> 
+  # randomply sample SNPs to avoid plots crashing
+  sample_n(10e3) |> 
+  ggplot(aes(e_het_a1, o_het_a1)) + 
+  geom_point(aes(colour = p < 0.001)) +
+  geom_abline() +
+  labs(x = "Expected heterozygosity", y = "Observed heterozygosity")
+```
+
+From this plot we can see that there seems to be an excess of SNPs with **lower heterozygosity** than expected, compared to those with higher heterozygosity. 
+This is because of population structure: our samples do not come from a homogenous randomly mating population.
+
+TODO: explain Wahlund effect and maybe make some ternary plots with HWTernaryPlot.
+
+
+:::{.callout-tip}
+#### Tip: Running multiple options at once
+
+We have seen 3 PLINK commands that are useful for checking properties of our genotype data: 
+
+- `--freq` to assess the allele frequency across SNPs.
+- `--missing` to assess genotype missingness both across SNPs and samples.
+- `--hardy` to assess genotype frequency deviations from the Hardy-Weinberg equilibrium expectation. 
+
+So far, we have run each of these options individually, however you can run multiple options simultaneously. 
+For example, our previous analyses could have been run with a single command: 
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --freq --hardy --missing
+```
+
+This would produce all three respective results files in one go. 
+:::
+
+
+## Population structure
+
+Based on our previous exploratory analysis, we apply two filters in this analysis: 
+
+- Minor allele frequency above 1%.
+- Hardy-Weinberg equilibrium p-value above 0.001.
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
+  --maf 0.01 --hwe 0.001 keep-fewhet --pca
+```
+
+```{r}
+eigenvec <- read_tsv("results/1000G_subset.eigenvec") |> 
+  clean_names()
+
+eigenvec |> 
+  ggplot(aes(pc1, pc2)) +
+  geom_point()
+  
+eigenval <- read_tsv("results/1000G_subset.eigenval",
+                     col_names = "eigenval")
+
+eigenval <- eigenval |> 
+  mutate(pc = 1:n(),
+         var = eigenval/sum(eigenval))
+
+eigenval |> 
+  ggplot(aes(pc, var)) +
+  geom_point() +
+  geom_line()
+  
+sample_info <- read_tsv("data/sample_info.tsv")
+
+eigenvec |> 
+  left_join(sample_info, by = c("iid" = "individual_id")) |> 
+  ggplot(aes(pc1, pc2, colour = super_pop)) +
+  geom_point()
+```
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- TODO
+:::

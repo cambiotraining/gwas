@@ -5,7 +5,7 @@
 # This is a known limitation of CFF files: https://github.com/citation-file-format/citation-file-format/issues/112
 
 cff-version: 1.2.0
-title: Course Development Guidelines
+title: Genome-Wide Association Studies (GWAS)
 message: >-
   You may cite these materials using the metadata in this
   file. Please cite our materials if you publish materials

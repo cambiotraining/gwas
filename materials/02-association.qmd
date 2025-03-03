@@ -1,0 +1,211 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Association analysis
+
+:::{.callout-tip}
+#### Learning objectives
+
+- Fit a GLM model to trait data using PLINK.
+- Generate Q-Q plots for the p-values from the association test, and use them to assess over- or under-inflation issues.
+- Recognise and apply correction for population structure in the GLM.
+- Produce Manhattan plots to visualise the association results across the genome.
+- Explore the association results and refine visualisations to focus on particular regions of interest.
+:::
+
+
+## Association analysis
+
+Command to run GLM:
+
+```bash
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset_nocovar \
+  --maf 0.01 --hwe 0.001 keep-fewhet \
+  --pheno data/phenotypes.tsv \
+  --glm allow-no-covars
+```
+
+Setup our R session:
+
+
+```{r}
+# load the libraries
+library(tidyverse) # data manipulation
+library(patchwork) # to compose plots
+library(janitor)   # to clean column names
+theme_set(theme_minimal())
+```
+
+
+Import the data and create custom theme for Manhattan plots: 
+
+```{r}
+coffee <- read_tsv("results/1000G_subset_nocovar.coffee.glm.linear") |> 
+  clean_names()
+  
+manhattan_theme <- theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank(),
+    panel.spacing = unit(0.1, "lines"),
+    strip.background = element_blank()
+  )
+```
+
+Q-Q plot: 
+
+```{r}
+coffee |> 
+  arrange(p) |> 
+  mutate(expected = -log10(ppoints(n())), 
+         observed = -log10(p)) |> 
+  # retain all p-values below 0.001
+  # but only ~5% of those above that threshold
+  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.05)) |> 
+  ggplot(aes(expected, observed)) +
+  geom_point() +
+  geom_abline()
+```
+
+Inflation factor:
+
+```{r}
+median(qchisq(coffee$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
+```
+
+Manhattan plot shows clear peaks, but generally inflated (notice everything is essentially above the threshold):
+
+```{r}
+coffee |> 
+  filter(p < 0.001) |> 
+  ggplot(aes(pos, -log10(p))) +
+  geom_point() +
+  geom_hline(yintercept = -log10(5e-8), colour = "firebrick", lwd = 1) +
+  facet_grid(~ number_chrom, 
+             scale = "free_x", 
+             space = "free_x") + 
+  manhattan_theme
+```
+
+We can look a distribution of our trait value across world regions and see there are differences across the continents, which will counfound the results:
+
+```{r}
+pheno <- read_tsv("data/phenotypes.tsv")
+sample_info <- read_tsv("data/sample_info.tsv")
+
+sample_info |> 
+  full_join(pheno, by = c("individual_id" = "IID")) |> 
+  ggplot(aes(super_pop, coffee)) +
+  geom_boxplot()
+```
+
+
+## Correct for population structure
+
+We now re-run the GLM, using PCA eigenvectors as covariates in the model:
+
+```bash
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset_pca \
+  --maf 0.01 --hwe 0.001 keep-fewhet \
+  --pheno data/phenotypes.tsv \
+  --glm \
+  --covar results/1000G_subset.eigenvec
+```
+
+We can import and visualise the new results:
+
+```{r}
+coffee_pca <- read_tsv("results/1000G_subset_pca.coffee.glm.linear") |> 
+  clean_names()
+  
+# retain only the SNP test results
+coffee_pca <- coffee_pca |> 
+  filter(test == "ADD")
+
+# histogram of p-values
+coffee_pval_hist <- coffee_pca |> 
+  arrange(p) |> 
+  mutate(expected = -log10(ppoints(n())), 
+         observed = -log10(p)) |> 
+  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.01)) |> 
+  ggplot(aes(p)) +
+  geom_histogram(binwidth = 0.01) +
+  labs(title = "P-value histogram")
+
+# qqplot
+coffee_pval_qq <- coffee_pca |> 
+  arrange(p) |> 
+  mutate(expected = -log10(ppoints(n())), 
+         observed = -log10(p)) |> 
+  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.01)) |> 
+  ggplot(aes(expected, observed)) +
+  geom_point() +
+  geom_abline() + 
+  labs(title = "Q-Q plot")
+
+# manhattan plot
+coffee_pval_man <- coffee_pca |> 
+  filter(p < 0.01) |> 
+  ggplot(aes(pos, -log10(p))) +
+  geom_point() +
+  geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
+  facet_grid(~ number_chrom, 
+             scale = "free_x", 
+             space = "free_x",
+             switch = "x") +
+  labs(x = "Chromosome", 
+       title = "Manhattan plot") +
+  manhattan_theme
+```
+
+Compose plots: 
+
+```{r}
+((coffee_pval_hist + coffee_pval_qq) / coffee_pval_man) + 
+  plot_annotation(
+    title = "Caffeine consumption (mg/day)"
+  )
+```
+
+Inflation factor:
+
+```{r}
+median(qchisq(coffee_pca$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
+```
+
+
+## Regional plots
+
+```{r}
+# Zoom in on one of the SNPs
+coffee_pca |> 
+  filter(number_chrom == 7 & pos > 17244953 - 250e3 & pos < 17244953 + 250e3) |> 
+  mutate(label = ifelse(p == min(p), 
+                        paste(number_chrom, pos, sep = ":"),
+                        NA)) |> 
+  ggplot(aes(pos, -log10(p))) +
+  geom_point() +
+  geom_text(aes(label = label), hjust = -0.1) +
+  geom_hline(yintercept = -log10(5e-8), linetype = "dashed")
+```
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- TODO
+:::
