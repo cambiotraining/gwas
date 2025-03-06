@@ -320,12 +320,30 @@ We download slightly older files, which only contain biallelic calls (to save sp
 For each chromosome, we get the genotype file (`.vcf`) and its index (`.tbi`):
 
 ```bash
-# this takes a long time to run...
-for i in {1..22}
+# download genotypes
+for i in {1..22} X
 do
-  wget -O chr${i}.vcf.gz "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz"
-  wget -O chr${i}.vcf.gz.tbi "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz.tbi"
+  # genotypes from 1000G server
+  wget -O data/vcf/chr${i}.vcf.gz "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz"
+  wget -O data/vcf/chr${i}.vcf.gz.tbi "http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20181203_biallelic_SNV/ALL.chr${i}.shapeit2_integrated_v1a.GRCh38.20181129.phased.vcf.gz.tbi"
+  
+  # annotations from ENSENBL
+  wget -O data/vcf/chr${i}.annot.vcf.gz "https://ftp.ensembl.org/pub/current_variation/vcf/homo_sapiens/homo_sapiens-chr${i}.vcf.gz"
+  wget -O data/vcf/chr${i}.annot.vcf.gz.csi "https://ftp.ensembl.org/pub/current_variation/vcf/homo_sapiens/homo_sapiens-chr${i}.vcf.gz.csi"
 done
+```
+
+The VCF files from ENSEMBL don't contain the actual genotypes, but they contain the variant IDs, which we extract to a separate file to later annotate the genotype VCF:
+
+```bash
+printf "#CHROM\tPOS\tID" > data/vcf/snp_ids.tsv
+for i in {1..22} X
+do
+  echo "chr${i}"
+  bcftools view -H data/vcf/chr${i}.annot.vcf.gz | cut -f 1,2,3 | sed 's/^/chr/' >> data/vcf/snp_ids.tsv
+done
+bgzip -c data/vcf/snp_ids.tsv > data/vcf/snp_ids.tsv.gz
+tabix -s 1 -b 2 -e 2 data/vcf/snp_ids.tsv.gz
 ```
 
 Then, we merge all the VCF files, as well as filter them for the SNPs and samples selected above:
@@ -338,7 +356,7 @@ cut -f 2 data/sample_info.tsv | tail -n +2 > temp_filter_ids.tsv
 
 # create variable with files listed numerically rather than alphabetical
 # otherwise we will get chr1, chr10, chr11, etc...
-vcf_files=$(ls data/vcf/chr*.vcf.gz | sort -V)
+vcf_files=$(ls data/vcf/chr*.vcf.gz | grep -v "annot" | sort -V)
 
 # concatenate and subset the files
 bcftools concat \
@@ -348,7 +366,12 @@ bcftools concat \
   $vcf_files \
   | bcftools view \
   --samples-file temp_filter_ids.tsv \
-  --output-file data/vcf/1000G_subset.vcf.gz \
+  --threads $threads \
+  | bcftools annotate \
+  --annotations data/vcf/snp_ids.tsv.gz \
+  --columns CHROM,POS,ID \
+  --header-lines <(echo "##INFO=<ID=ID,Number=1,Type=String,Description=\"SNP ID\">") \
+  --output data/vcf/1000G_subset.vcf.gz \
   --output-type z \
   --threads $threads
 
@@ -388,6 +411,25 @@ do
   rm temp_${trait}_snps.tsv
 done
 ```
+
+We add annotations to the VCF file, which we fetch from BioMart:
+
+```{r}
+library(biomaRt)
+
+# listMarts()
+ensembl <- useEnsembl(biomart = "ENSEMBL_MART_SNP")
+
+# listDatasets(ensembl)
+ensembl <- useDataset(dataset = "hsapiens_snp", mart = ensembl)
+
+listAttributes(ensembl) |> View()
+snp_ids <- getBM(mart = ensembl, 
+                 attributes = c("refsnp_id", "chr_name", "chrom_start"),
+                 filters = c("chr_name", "start"), 
+                 values = list(c(11, 11), c(35544174, 35544476)))
+```
+
 
 ## Simulating traits
 
@@ -582,7 +624,8 @@ sample_info |>
   left_join(pheno, by = c("individual_id" = "id")) |> 
   rename(FID = family_id, IID = individual_id) |> 
   # recode cases/controls as 1/2, which PLINK uses
-  mutate(chronotype = ifelse(chronotype == 0, 1, 2)) |> 
+  mutate(chronotype = chronotype + 1, 
+         t2d = t2d + 1) |> 
   write_tsv("data/phenotypes.tsv")
 ```
 
@@ -594,23 +637,15 @@ There's some improvements to be made to these simulations:
 
 ## Convert VCF to plink
 
-Before converting our VCF, we set some genotypes to missing randomly (for teaching purposes):
+Before converting our VCF, we set some genotypes to missing randomly (for teaching purposes).
+We use a custom python script for this, which does the following:
+
+- 20% of samples have some missing genotypes.
+- 30% of variants have missing data.
+- Missing probabilities are sampled from a Beta distribution to give a reasonably realistic distribution that tails off. 
 
 ```bash
-bcftools view -h data/vcf/1000G_subset.vcf.gz > temp.vcf
-bcftools view -H data/vcf/1000G_subset.vcf.gz | awk '
-BEGIN {srand(20250301); OFS="\t"} 
-{
-    # 20% of SNPs get a missing rate up to 30%, others get 0%
-    missing_rate = (rand() < 0.2) ? rand() * 0.3 : 0  
-    
-    for (i=10; i<=NF; i++) {  
-        if (rand() < missing_rate) {  
-            sub(/[0-9]\/[0-9]|[0-9]\|[0-9]/, "./.", $i)
-        }
-    }
-    print
-}' >> temp.vcf
+python utils/vcf_missing.py -i data/vcf/1000G_subset.vcf.gz -o temp.vcf.gz
 ```
 
 We convert our VCF file to both new and old (version 1) PLINK files. 
@@ -622,28 +657,18 @@ tail -n +2 data/sample_info.tsv | cut -f 1,2,3,4,5,6 | sed 's/0$/NA/' > temp.fam
 
 # BED format for PLINK1 or software that only supports it
 plink2 \
-  --vcf temp.vcf \
+  --vcf temp.vcf.gz \
   --fam temp.fam \
   --make-bed \
   --out data/plink/1000G_subset
 
 # new format
 plink2 \
-  --vcf temp.vcf \
+  --vcf temp.vcf.gz \
   --fam temp.fam \
   --make-pgen \
   --out data/plink/1000G_subset
 
 # remove temporary files
-rm temp.vcf temp.fam
+rm temp.vcf.gz temp.fam
 ```
-
-
-
-## Summary
-
-::: {.callout-tip}
-#### Key Points
-
-- TODO
-:::

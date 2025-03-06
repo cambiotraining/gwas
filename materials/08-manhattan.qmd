@@ -8,7 +8,7 @@ knitr::opts_knit$set(root.dir = "../course_files")
 set.seed(123)
 ```
 
-# Association analysis
+# Manhattan plots
 
 :::{.callout-tip}
 #### Learning objectives

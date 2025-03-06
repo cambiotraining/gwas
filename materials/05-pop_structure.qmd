@@ -1,0 +1,62 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Population structure
+
+:::{.callout-tip}
+#### Learning objectives
+
+- Identify population structure in a collection of samples and explain how this may confound GWAS results.
+:::
+
+
+## Population structure
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
+  --maf 0.01 --hwe 0.001 keep-fewhet --pca
+```
+
+```{r}
+eigenvec <- read_tsv("results/1000G_subset.eigenvec") |> 
+  clean_names()
+
+eigenvec |> 
+  ggplot(aes(pc1, pc2)) +
+  geom_point()
+  
+eigenval <- read_tsv("results/1000G_subset.eigenval",
+                     col_names = "eigenval")
+
+eigenval <- eigenval |> 
+  mutate(pc = 1:n(),
+         var = eigenval/sum(eigenval))
+
+eigenval |> 
+  ggplot(aes(pc, var)) +
+  geom_point() +
+  geom_line()
+  
+sample_info <- read_tsv("data/sample_info.tsv")
+
+eigenvec |> 
+  left_join(sample_info, by = c("iid" = "individual_id")) |> 
+  ggplot(aes(pc1, pc2, colour = super_pop)) +
+  geom_point()
+```
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- TODO
+:::
