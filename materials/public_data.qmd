@@ -412,24 +412,6 @@ do
 done
 ```
 
-We add annotations to the VCF file, which we fetch from BioMart:
-
-```{r}
-library(biomaRt)
-
-# listMarts()
-ensembl <- useEnsembl(biomart = "ENSEMBL_MART_SNP")
-
-# listDatasets(ensembl)
-ensembl <- useDataset(dataset = "hsapiens_snp", mart = ensembl)
-
-listAttributes(ensembl) |> View()
-snp_ids <- getBM(mart = ensembl, 
-                 attributes = c("refsnp_id", "chr_name", "chrom_start"),
-                 filters = c("chr_name", "start"), 
-                 values = list(c(11, 11), c(35544174, 35544476)))
-```
-
 
 ## Simulating traits
 
@@ -652,7 +634,7 @@ We convert our VCF file to both new and old (version 1) PLINK files.
 We retain the information about our samples by creating a temporary "fam" file from our `sample_info.tsv` table. 
 
 ```bash
-# temporary FAM file setting genotypes to missing
+# temporary FAM file setting phenotypes to missing
 tail -n +2 data/sample_info.tsv | cut -f 1,2,3,4,5,6 | sed 's/0$/NA/' > temp.fam
 
 # BED format for PLINK1 or software that only supports it

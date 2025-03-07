@@ -17,41 +17,194 @@ set.seed(123)
 :::
 
 
-## Population structure
+## Population stratification
+
+Populations from different geographic regions may genetically diverge from each other due to evolutionary processes such as drift, selection, bottlenecks, etc. 
+This creates patterns in the genetic background of the individuals from these populations, such that we can, for example, infer their ancestry from their genome sequences. 
+This is what we refer to as **population structure**.
+
+Intuitively, it's easy to understand that human individuals from the same country are genetically more similar to each other compared to individuals from other countries. 
+Much of this similarity is simply a consequence of their shared evolutionary history, and not directly related to traits that also differ between those populations. 
+Thus, population structure may confound our trait association analysis and needs to be investigated and taken into account in downstream analyses. 
+
+:::{.callout-important}
+#### Set up your R session
+
+If you haven't done so already, start an R session with the following packages loaded: 
+
+```{r load-packages}
+# load the libraries
+library(tidyverse) # data manipulation
+library(patchwork) # to compose plots
+library(janitor)   # to clean column names
+theme_set(theme_minimal()) # change default ggplot2 theme
+```
+
+:::
+
+
+## Principal components analysis
+
+One popular way to assess the presence of population structure is to use **principal components analysis (PCA)** using the genetic data, to help cluster the individual samples based on their genotypes. 
+
+PLINK provides the `--pca` option to perform this task. 
+In the following command we use this option, along with several filters based on our quality control exploration done in previous sections: 
 
 ```bash
 plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
-  --maf 0.01 --hwe 0.001 keep-fewhet --pca
+  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
+  --mind 0.05 --king-cutoff 0.125 \
+  --pca
 ```
 
-```{r}
+To recap, our filters are: 
+
+- `--geno 0.05` removes variants with > 5% missing data. 
+- `--maf 0.01` removes  variants with < 1% minor allele frequency.
+- `--hwe 0.001` removes variants with p-value < 0.001 for the HWE test, but only those with high heterozygosity (as low heterozygosity variants may be due to population structure). 
+- `--mind 0.05` removes samples with > 5% missing data. 
+- `--king-cutoff 0.125` removes individuals with kinship coefficient greater than 1/8 (second-degree relatives).
+
+The PCA option outputs two files: 
+
+- `.eigenvec` contains the principal component scores (also known as eigen vectors), which are the coordinates of each sample on the new dimensionality space. 
+- `.eigenval` contains the variance explained by each principal component (also know as eigen values), which can be used to calculate the fraction of variance explained. 
+
+We explore each of these in turn. 
+
+
+## Variance explained
+
+A standard practice when analysing a PCA is to consider what fraction of the variance in the original data (in our case genotypes) is explained by each of the principal components. 
+
+This is stored in the `.eigenval` file, which is a simple text file with one value of variance per line: 
+
+```bash
+head -n 5 results/1000G_subset.eigenval
+```
+
+```
+79.3207
+44.1399
+6.95917
+3.5593
+3.55036
+```
+
+We import this file into into R, making sure to specify a column name manually.
+We also add a new column to the table, specifying the principal component number.
+Finally, we add a column that calculates the fraction of variance explained by each PC.
+
+```{r eigenval-read}
+# read table adding a column name manually
+eigenval <- read_tsv("results/1000G_subset.eigenval",
+                     col_names = "var")
+
+# add columns with PC number and pct variance explained
+eigenval <- eigenval |> 
+  mutate(pc = 1:n(),
+         pct_var = var/sum(var)*100)
+  
+head(eigenval)
+```
+
+With this table we can now make a barplot of variance explained by each principal component, as well as the cumulative variance explained. 
+This is known as a [scree plot](https://en.wikipedia.org/wiki/Scree_plot). 
+
+```{r eigenval-screeplot}
+eigenval |> 
+  ggplot(aes(pc, pct_var)) +
+  geom_col() +
+  geom_line(aes(y = cumsum(pct_var))) +
+  scale_x_continuous(breaks = 1:10) +
+  scale_y_continuous(breaks = seq(0, 100, by = 20))
+```
+
+From this visualisation, we can see that most of the genetic variance in our samples is explained by the first two principal components (~80%). 
+This is, by itself, already an indication that there is substantial population structure in our data. 
+
+This should not be surprising, as we know that our individuals come from different geographic regions. 
+
+
+## PCA plot
+
+We now read the eigen vectors, i.e. the principal component scores that represent our samples in the low-dimensionality space calculated by the PCA method. 
+
+This is stored in the `.eigenvec` file, which we can read into R as usual:
+
+```{r eigenvec-read}
 eigenvec <- read_tsv("results/1000G_subset.eigenvec") |> 
   clean_names()
 
+head(eigenvec)
+```
+
+In addition to the family and individual IDs, we have 10 columns representing the coordinates of each sample on the principal component space. 
+
+:::{.callout-exercise}
+#### PCA plot
+
+Use `ggplot` to make a scatter plot of PC1 vs PC2. 
+
+What can you conclude about the extent of population structure in the data?
+
+:::{.callout-answer}
+
+The code to produce the plot is:
+
+```{r eigevec-plot1}
 eigenvec |> 
   ggplot(aes(pc1, pc2)) +
   geom_point()
-  
-eigenval <- read_tsv("results/1000G_subset.eigenval",
-                     col_names = "eigenval")
-
-eigenval <- eigenval |> 
-  mutate(pc = 1:n(),
-         var = eigenval/sum(eigenval))
-
-eigenval |> 
-  ggplot(aes(pc, var)) +
-  geom_point() +
-  geom_line()
-  
-sample_info <- read_tsv("data/sample_info.tsv")
-
-eigenvec |> 
-  left_join(sample_info, by = c("iid" = "individual_id")) |> 
-  ggplot(aes(pc1, pc2, colour = super_pop)) +
-  geom_point()
 ```
 
+This very clearly shows population structure in our samples. 
+We can see how groups of samples cluster together in our PCA, indicating their genetic similarity. 
+
+Tipically we focus on the first 2 PCs, as these explain the most variance, but you may sometimes want to explore further PCs, especially if they still explain a substantial percentage of the variation in the data. 
+
+:::
+:::
+
+
+### Adding metadata
+
+The visualisation created in the exercise above is useful, but we can improve it by joining the sample metadata and colouring our points by world region. 
+
+```{r eigenvec-join}
+# read the sample metadata file
+sample_info <- read_tsv("data/sample_info.tsv")
+
+head(sample_info)
+
+# join the eigenvector table with the metadata table
+eigenvec <- eigenvec |> 
+  left_join(sample_info, 
+            by = c("iid" = "individual_id"))
+  
+# confirm column names in the joined table
+colnames(eigenvec)
+```
+
+As our table now contains the columns from the sample metadata, as well as the principal component scores, we can make a nicer visualisation of our PCA. 
+
+We colour points by the world region (`super_pop` column) and also add the percentage of variance explained to the x and y axis labels. 
+
+```{r eigenvec-plot2}
+eigenvec |> 
+  ggplot(aes(pc1, pc2, colour = super_pop)) +
+  geom_point() +
+  labs(x = paste0("PC1 (", round(eigenval$pct_var[1]), "%)"), 
+       y = paste0("PC1 (", round(eigenval$pct_var[1]), "%)"), 
+       colour = "World Region")
+```
+
+As we suspected, this very clearly shows individuals clustering by the world region they originate from. 
+
+We can also see some spread of points within each world region. 
+This is likely due to even further population structure, as individuals within these regions also come from different countries. 
+
+This population stratification will have to be taken into account when we run our association analysis, which is the topic of the next chapter. 
 
 ## Summary
 

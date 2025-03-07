@@ -8,35 +8,17 @@ knitr::opts_knit$set(root.dir = "../course_files")
 set.seed(123)
 ```
 
-# Manhattan plots
+# Visualising GWAS
 
 :::{.callout-tip}
 #### Learning objectives
 
-- Summarise the statistical methods used by PLINK to carry out trait-genotype association tests.
-- Fit a GLM model to trait data using PLINK both with and without covariates.
-- Generate Q-Q plots for the p-values from the association test, to assess over- or under-inflation issues.
-- Recognise and apply correction for population structure in the GLM model.
 - Produce Manhattan plots to visualise the association results across the genome.
 - Explore the association results and refine visualisations to focus on particular regions of interest.
 :::
 
 
-## Association analysis
-
-Command to run GLM:
-
-```bash
-plink2 \
-  --pfile data/plink/1000G_subset \
-  --out results/1000G_subset_nocovar \
-  --maf 0.01 --hwe 0.001 keep-fewhet \
-  --pheno data/phenotypes.tsv \
-  --glm allow-no-covars
-```
-
-Setup our R session:
-
+## Manhattan plot
 
 ```{r}
 # load the libraries
@@ -63,69 +45,7 @@ manhattan_theme <- theme_minimal() +
   )
 ```
 
-Q-Q plot: 
-
-```{r}
-coffee |> 
-  arrange(p) |> 
-  mutate(expected = -log10(ppoints(n())), 
-         observed = -log10(p)) |> 
-  # retain all p-values below 0.001
-  # but only ~5% of those above that threshold
-  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.05)) |> 
-  ggplot(aes(expected, observed)) +
-  geom_point() +
-  geom_abline()
-```
-
-Inflation factor:
-
-```{r}
-median(qchisq(coffee$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
-```
-
-Manhattan plot shows clear peaks, but generally inflated (notice everything is essentially above the threshold):
-
-```{r}
-coffee |> 
-  filter(p < 0.001) |> 
-  ggplot(aes(pos, -log10(p))) +
-  geom_point() +
-  geom_hline(yintercept = -log10(5e-8), colour = "firebrick", lwd = 1) +
-  facet_grid(~ number_chrom, 
-             scale = "free_x", 
-             space = "free_x") + 
-  manhattan_theme
-```
-
-We can look a distribution of our trait value across world regions and see there are differences across the continents, which will counfound the results:
-
-```{r}
-pheno <- read_tsv("data/phenotypes.tsv")
-sample_info <- read_tsv("data/sample_info.tsv")
-
-sample_info |> 
-  full_join(pheno, by = c("individual_id" = "IID")) |> 
-  ggplot(aes(super_pop, coffee)) +
-  geom_boxplot()
-```
-
-
-## Correct for population structure
-
-We now re-run the GLM, using PCA eigenvectors as covariates in the model:
-
-```bash
-plink2 \
-  --pfile data/plink/1000G_subset \
-  --out results/1000G_subset_pca \
-  --maf 0.01 --hwe 0.001 keep-fewhet \
-  --pheno data/phenotypes.tsv \
-  --glm \
-  --covar results/1000G_subset.eigenvec
-```
-
-We can import and visualise the new results:
+We can import and visualise the results:
 
 ```{r}
 coffee_pca <- read_tsv("results/1000G_subset_pca.coffee.glm.linear") |> 
@@ -202,6 +122,38 @@ coffee_pca |>
   geom_hline(yintercept = -log10(5e-8), linetype = "dashed")
 ```
 
+Calculate LD for target SNP:
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
+  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
+  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \
+  --r2-unphased --ld-window-kb 500 --ld-snp rs4410790
+```
+
+Visualise:
+
+```{r}
+hit <- read_tsv("results/1000G_subset.vcor") |> 
+  clean_names()
+
+coffee_pca |> 
+  filter(number_chrom == 7 & pos > 17244953 - 250e3 & pos < 17244953 + 250e3) |> 
+  mutate(label = ifelse(p == min(p), 
+                        paste(number_chrom, pos, sep = ":"),
+                        NA)) |> 
+  left_join(hit, by = c("id" = "id_b")) |> 
+  mutate(unphased_r2 = ifelse(is.na(unphased_r2), 0, unphased_r2)) |> 
+  mutate(unphased_r2 = ifelse(p == min(p), 1, unphased_r2)) |> 
+  ggplot(aes(pos, -log10(p))) +
+  geom_point(aes(colour = unphased_r2, size = unphased_r2)) +
+  geom_text(aes(label = label), hjust = -0.1) +
+  geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
+  scale_colour_gradient2(low = "#313695", 
+                         mid = "#ffffbf", 
+                         high = "#a50026", 
+                         midpoint = 0.5)
+```
 
 ## Summary
 

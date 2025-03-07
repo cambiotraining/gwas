@@ -6,12 +6,6 @@ pagetitle: GWAS
 knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
 knitr::opts_knit$set(root.dir = "../course_files")
 set.seed(123)
-
-# load the libraries
-library(tidyverse) # data manipulation
-library(patchwork) # to compose plots
-library(janitor)   # to clean column names
-theme_set(theme_minimal()) # change default ggplot2 theme
 ```
 
 # Sample QC
@@ -37,15 +31,21 @@ We will consider the following metrics for each sample:
 - **Discordant sex**: In humans, we expect males to have only one X chromosome and thus no heterozygous variants, while the converse is true for females. This expectation can be used to identify potential mis-matches and correct them before proceeding.
 
 We will cover each of these below. 
-Continuing from previous chapters, we use an R session with the following packages loaded: 
 
-```{r}
+:::{.callout-important}
+#### Set up your R session
+
+If you haven't done so already, start an R session with the following packages loaded: 
+
+```{r load-packages}
 # load the libraries
 library(tidyverse) # data manipulation
 library(patchwork) # to compose plots
 library(janitor)   # to clean column names
 theme_set(theme_minimal()) # change default ggplot2 theme
 ```
+
+:::
 
 
 ## Call rates
@@ -65,7 +65,7 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --missing
 
 For the sample missingness report the file extension is `.smiss`, which we can import into R as usual:
 
-```{r read-smiss}
+```{r smiss-read}
 smiss <- read_tsv("results/1000G_subset.smiss") |> 
   clean_names()
   
@@ -75,7 +75,7 @@ head(smiss)
 
 We can tabulate how many samples have missing genotypes: 
 
-```{r}
+```{r smiss-tabulate}
 table(smiss$missing_ct > 0)
 ```
 
@@ -83,7 +83,7 @@ Around 20% of our samples have missing data in at least one of the variants.
 
 For those samples with some missing data, we can check the distribution of the fraction of missing genotypes:
 
-```{r}
+```{r smiss-hist}
 smiss |> 
   filter(f_miss > 0) |> 
   ggplot(aes(f_miss)) +
@@ -100,19 +100,21 @@ In any case, individuals with high rates of missing data, e.g. using the 5% thre
 
 Another useful metric to assess issues with sample quality is to look at the fraction of variants that are heterozygous. 
 In general, we expect an individual to have both homozygous and heterozygous genotypes. 
+Individuals with high heterozygosity may represent poor quality samples (e.g. contaminated samples composed of a mixture of DNA from two individuals). 
+Conversely, individuals with high homozygosity may indicate inbreeding, which can impact the balance of allele frequencies in the population (as discussed in the Hardy-Weinberg equilibrium section) and potentially bias the results of our association tests. 
 
 There isn't necessarily a clear value, but within a population we should expect the distribution of heterozygosity to be consistent across individuals. 
 If an individual is an outlier (e.g. with too many homozygous or heterozygous sites), then we may infer some quality issues may have ocurred with that sample. 
 
-PLINK can calculate per-sample heterozygosity rates using the option `--het`:
+PLINK can calculate per-sample heterozygosity rates using the option `--het`, applying the variant filters defined in the [variant QC section](03-qc_variants.qmd):
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --het
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --het
 ```
 
 The output file has extension `.het`, which we can import into R:
 
-```{r read-het}
+```{r het-read}
 het <- read_tsv("results/1000G_subset.het") |> 
   clean_names()
 
@@ -121,7 +123,7 @@ head(het)
 
 We can make a histogram of the fraction of homozygous individuals:
 
-```{r plot-het}
+```{r het-histogram}
 het |> 
   ggplot(aes(f)) +
   geom_histogram()
@@ -142,7 +144,65 @@ One other thing that can be considered is whether there are potential relationsh
 In our dataset all samples are supposed to be unrelated. 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --maf 0.1 --make-king triangle
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --mind 0.05 --make-king-table
+```
+
+This outputs a file with format `.kin0`, which contains pairwise kinship coefficients for each pair of samples. 
+We can read this table into R as usual:
+
+```{r king-read}
+king <- read_tsv("results/1000G_subset.kin0") |> 
+  clean_names()
+  
+head(king)
+```
+
+For each pair of samples we now have the kinship coefficient calculated using the KING method. 
+The authors of this method indicate that unrelated individuals should have a kinship coefficient of zero, but they recommend using a threshold of ~0.044 (cf. Table 1 in [Manichaikul et al. 2010](https://doi.org/10.1093/bioinformatics/btq559)).
+
+We can check how many individuals are above this threshold:
+
+```{r king-tabulate}
+table(king$kinship > 0.044)
+```
+
+Only `r sum(king$kinship > 0.044)` individuals are above this threshold. 
+We can also look at the distribution of this kinship coefficient:
+
+```{r king-histogram}
+king |> 
+  ggplot(aes(kinship)) +
+  geom_histogram(bins = 100) +
+  geom_vline(xintercept = 1/16)
+```
+
+Similar to what we've seen before for heterozygosity, we get a multi-modal distribution of kinship values.
+This is again likely because of **population structure**, i.e. the fact that our samples come from different geographic areas and thus may have differing base levels of "residual relatedness". 
+
+However, we can see all most values are negative, which can happen with this coefficient and essentially indicates no relatedness between individuals. 
+
+More worringly, we can see some individuals seem closely related if we sort the table in descending order of kinship and look at the top few rows:
+
+```{r king-arrange}
+king |> 
+  arrange(desc(kinship)) |> 
+  head(n = 15)
+```
+
+We see a few individuals have a kinship coefficient of ~1/4, which is indicative of full siblings.
+Others are close to ~1/8 (second degree relationships, e.g. cousins) and a few close to ~1/16 (third degree relationship). 
+
+To eliminate close relationships from downstream analysis, we can use PLINK's option `--king-cutoff 0.125` to eliminate at least second degree relationships.
+
+
+
+<!-- 
+
+NOTE: I initially didn't realise there was a `--make-king-table` option already available. 
+NOTE: kept this here for reference
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --mind 0.05 --make-king triangle
 ```
 
 This command outputs files in different format to other commands we've seen so far.
@@ -157,7 +217,7 @@ head -n 5 results/1000G_subset.king
 
 Importing this into R is slightly more work, and we will do a bit more data wrangling to get it into a suitable format for plotting and exploratory analysis. 
 
-```{r}
+```r
 # read the IDs and pull them to a standard vector
 king_ids <- read_tsv("results/1000G_subset.king.id") |>
   clean_names() |> 
@@ -179,48 +239,17 @@ king <- king |>
   drop_na(kinship)
   
 head(king)
-```
+``` 
 
-For each pair of samples we now have the kinship metric calculated using the KING method. 
-The authors of this method indicate that unrelated individuals should have a kinship coefficient of zero, but they recommend using a threshold of ~0.044 (cf. Table 1 in [Manichaikul et al. 2010](https://doi.org/10.1093/bioinformatics/btq559)).
-
-We can check how many individuals are above this threshold:
-
-```{r}
-table(king$kinship > 0.044)
-```
-
-Only `r sum(king$kinship > 0.044)` individuals are above this threshold. 
-We can also look at the distribution of this kinship coefficient:
-
-```{r}
-king |> 
-  ggplot(aes(kinship)) +
-  geom_histogram(bins = 100) +
-  geom_vline(xintercept = 1/16)
-```
-
-Similar to what we've seen before for heterozygosity, we get a multi-modal distribution of kinship values.
-This is again likely because of **population structure**, i.e. the fact that our samples come from different geographic areas and thus may have differing base levels of "residual relatedness". 
-
-However, we can see all most values are negative, which can happen with this coefficient and essentially indicates no relatedness between individuals. 
-
-More worringly, we can see some individuals seem closely related if we sort the table in descending order of kinship and look at the top few rows:
-
-```{r}
-king |> 
-  arrange(desc(kinship)) |> 
-  head(n = 15)
-```
-
-We see a few individuals have a kinship coefficient of ~1/4, which is indicative of full siblings.
-Others are close to ~1/8 (second degree relationships, e.g. cousins) and a few close to ~1/16 (third degree relationship). 
-
-To eliminate close relationships from downstream analysis, we can use PLINK's option `--king-cutoff 0.125` to eliminate at least second degree relationships.
-
-<!-- 
-## Discordant sex
 -->
+
+
+## Discordant sex
+
+:::{.callout-caution}
+Sorry, we're still working on this section. 
+In the meanwhile, you can look at PLINK's [documentation for the `--check-sex` option](https://www.cog-genomics.org/plink/2.0/basic_stats#check_sex).
+:::
 
 
 ## Summary

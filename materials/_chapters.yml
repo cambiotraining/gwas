@@ -1,6 +1,16 @@
 book:
   chapters:
-    - part: "GWAS"
+    - part: "Introduction"
       chapters:
-        - materials/01-qc.qmd
-        - materials/02-association.qmd
+        - materials/01-overview.qmd
+        - materials/02-plink.qmd
+    - part: "Quality control"
+      chapters:
+        - materials/03-qc_variants.qmd
+        - materials/04-qc_samples.qmd
+        - materials/05-pop_structure.qmd
+    - part: "GWAS analysis"
+      chapters:
+        - materials/06-stats.qmd
+        - materials/07-glm.qmd
+        - materials/08-manhattan.qmd

@@ -1,0 +1,197 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Statistical models for GWAS
+
+:::{.callout-tip}
+#### Learning objectives
+
+- Summarise the statistical methods used by PLINK to carry out trait-genotype association tests.
+- Interpret the effect sizes of an association in relation to individual genotypes. 
+- Distinguish how the interpretation of effect sizes differs for quantitative and binary trait models.
+:::
+
+
+## Association tests
+
+At its simplest, the association test carried out by software such as PLINK is based on linear regression models. 
+Most GWAS software support two types of regression models, depending on the nature of the trait: **normal** regression for quantitative traits or **binomial (logistic)** regression for binary traits (case/control, yes/no, presence/absence).
+
+We go over the intuition for each of these approaches.
+In the examples below we assume there are two alleles at a variant (i.e. it is bi-allelic), with alleles "A" and "B". 
+The three diploid genotypes are written as "AA", "AB" and "BB".
+
+
+## Quantitative trait models
+
+For **quantitative traits** we assume that the trait is well-approximated by a Normal distribution, $Trait \sim N(\mu, \sigma^2)$ with mean $\mu$ and variance $\sigma^2$. 
+The mean of this distribution is modelled as dependent on genotype, and we test for the significance of this relationship.
+
+```{r regression-sim}
+#| echo: false
+library(tidyverse) # data manipulation
+library(patchwork) # to compose plots
+library(janitor)   # to clean column names
+theme_set(theme_minimal()) # change default ggplot2 theme
+set.seed(42)
+
+xs <- sample(0:2, 100, replace = TRUE, prob = c(0.25, 0.5, 0.25))
+ys <- rnorm(length(xs), model.matrix(~ xs) %*% c(0, 1))
+
+tibble(genotypes = xs, trait = ys) |> 
+  ggplot(aes(factor(genotypes), trait)) +
+  geom_jitter(width = 0.1) +
+  geom_smooth(aes(group = 1), 
+              method = "lm", 
+              se = FALSE, 
+              colour = "firebrick", 
+              size = 2) +
+  labs(x = "Genotype (number of 'B' alleles)", y = "Trait") +
+  theme_classic() +
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank())
+```
+
+The strength of the relationship between genotype and trait is measured by the slope of the regression line, often referred to as **Beta (β)**. 
+
+For example, if our trait was blood pressure measured in _mm Hg_, and we estimated β = 3 for a given variant, this would be the interpretation of the results:
+
+- Genotype AA: baseline group (carrying zero "B" alleles).
+- Genotype AB: +3 mg Hg compared to AA.
+- Genotype BB: +6 mg Hg compared to AA.
+
+This is a so-called "additive genetic model", where we code the genotypes as "number of B alleles" and we thus assume that homozygotes "BB" increase by twice relative to heterozygotes. 
+
+The **significance of association** is determined by testing for the slope of the regression being zero (i.e. a flat line). 
+This is done by using a t-statistic, which measures the "signal-to-noise" ratio of our estimate, and comparing it to a theoretical distribution to obtain a **p-value** for the association. 
+
+:::{.callout-note}
+#### Quantitative traits
+
+Quantitative traits may include both continuous type of data (e.g. bmi, height) as well as and discrete count data (e.g. cell count, cigarette consumption). 
+In generalised linear models, count data would usually be modelled using a more appropriate distribution rather than the Normal (e.g. a Poisson or Negative Binomial regression). 
+
+However, these methods can be computationally expensive and so, in practice, software packages for GWAS usually only implement the normal regression model for quantitative traits. 
+:::
+
+
+## Binary trait models
+
+Conceptually, things are very similar for **binary traits**, except we assume the trait comes from a binomial (think of coin flips 🪙): $Trait \sim Binomial(n, p)$ with known sample size $n$ (that's how many individuals we have) and a probability $p$ that the event happens. 
+The probability $p$ is modelled as depending on genotype, and we test for the significance of this relationship. 
+
+```{r logistic-sim}
+#| echo: false
+set.seed(42)
+
+xs <- sample(0:2, 100, replace = TRUE, prob = c(0.25, 0.5, 0.25))
+# I define the betas relative to their original scale
+# the intercept is the log(odds) for genotype 0, which I set by defining the baseline probability as 10%
+# the beta is the log(odds) for each allele, which I set to 7
+ys <- rbinom(length(xs), 
+             size = 1, 
+             prob = plogis(model.matrix(~ xs) %*% c(log(0.1/(1-0.1)), log(3))))
+
+tibble(genotypes = xs, trait = ys) |> 
+  ggplot(aes(genotypes, trait)) +
+  geom_jitter(width = 0.1, height = 0.05) +
+  geom_smooth(aes(group = 1), 
+              method = "glm", 
+              method.args = list(family = "binomial"),
+              se = FALSE, 
+              colour = "firebrick", 
+              size = 2) +
+  labs(x = "Genotype (number of alternative allele copies)", 
+       y = "Trait probability") +
+  theme_classic() +
+  scale_x_continuous(breaks = 0:2)
+```
+
+For binary traits, the strength of the relationship between trait and genotype is expressed as an **odds ratio (OR)**, i.e. the ratio of the probability that the event occurs over the probability that it doesn't: 
+
+$$
+\text{Odds Ratio} = \frac{p}{1 - p}
+$$
+
+Taking a concrete example, if our trait is "type 2 diabetes", the odds ratio represents the probability change in having this condition, relative to not having it:
+
+$$
+\text{Odds Ratio} = \frac{\text{probability diabetes}}{\text{probability healthy}}
+$$
+
+One important thing to consider is that the coefficients of logistic regression models are multiplicative.
+For example, if the estimate for a given variant was OR = 3, the interpretation in terms of genotypes is:
+
+- Genotype AA: baseline group (carrying zero "B" alleles).
+- Genotype AB: 3 times more likely to have the condition than AA.
+- Genotype BB: 3² = 9 times more likely to have the condition than AA.
+
+The **significance of association** in this case is assessed using a Wald Z-statistic, which similarly to the t-statistic discussed earlier, measures the "signal-to-noise" ratio of our OR estimate.
+As usual, this is compared to a theoretical distribution to obtain a **p-value** for the association.
+
+
+:::{.callout-important}
+#### Effect sizes
+
+In the examples given above we used relatively large effect sizes, for illustration purposes. 
+For complex traits the effects of individual variants might be quite small. 
+For example, for type 2 diabetes many found associations have OR of ~1.1 or even less. 
+For reference, this represents a probability of 52% of having the disease compared to 48% for not having it. 
+
+These are still substantial effects, but not as large as what we used in the examples above. 
+:::
+
+
+:::{.callout-note}
+#### Odds, log-odds and probabilities
+
+Logistic regression models can be challenging to interpret and working with odds is sometimes confusing. 
+Remember, the odds is a ratio of two probabilities: the probability of an event happening versus it not happening. 
+
+Because of the underlying maths, logistic regression coefficients are usually given as log-odds. 
+This is exactly how it sounds like, it's the natural log of the odds ratio. 
+This is also known as the logit function.
+
+I can be useful to convert probabilities to odds (or log-odds) and back. 
+Say an event has a 75% chancde of happening, we can calculate odds and log-odds easily: 
+
+```{r}
+# if you know your probability
+p <- 0.75
+
+# calculate odds as:
+0.75 / (1 - 0.75)
+
+# and log-odds taking the natural log of the previous
+log(0.75 / (1 - 0.75))
+```
+
+On the other hand, if you start from having the odds ratio, for example OR = 3, then you need to: 
+first convert it to log-odds (or "logit"); then use the inverse-logit function to calculate the probability.
+Here's the R code: 
+
+```{r}
+# if you know your odds
+odds <- 3
+
+# calculate the probability of the event using the inverse-logit
+plogis(log(odds))
+```
+
+:::
+
+
+## Summary
+
+::: {.callout-tip}
+#### Key Points
+
+- TODO
+:::

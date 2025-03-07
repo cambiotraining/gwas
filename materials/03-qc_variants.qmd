@@ -29,15 +29,22 @@ We will consider the following metrics for each variant:
 - **Hardy-Weinberg deviations**: In randomly mating populations, there is a theoretical expectation of how many homozygous and heterozygous individuals there should be given the frequency of the two alleles. Deviations from this expectation may be due to genotyping errors.
 
 We will cover each of these below. 
-Continuing from previous chapters, we use an R session with the following packages loaded: 
 
-```{r}
+
+:::{.callout-important}
+#### Set up your R session
+
+If you haven't done so already, start an R session with the following packages loaded: 
+
+```{r load-packages}
 # load the libraries
 library(tidyverse) # data manipulation
 library(patchwork) # to compose plots
 library(janitor)   # to clean column names
 theme_set(theme_minimal()) # change default ggplot2 theme
 ```
+
+:::
 
 
 ## Call rates
@@ -98,7 +105,7 @@ head results/1000G_subset.vmiss
 In the previous exercise, you should have produced a file containing the counts and frequency of missing genotypes for each variant. 
 As [we did before](02-plink.md) for the allele frequency file, we can import this table into R:
 
-```{r read-smiss}
+```{r vmiss-read}
 vmiss <- read_tsv("results/1000G_subset.vmiss") |> 
   clean_names()
   
@@ -108,14 +115,14 @@ head(vmiss)
 
 We can tabulate how many variants have missing genotypes: 
 
-```{r}
+```{r vmiss-tabulate}
 table(vmiss$missing_ct > 0)
 ```
 
 Around `r round(sum(vmiss$missing_ct > 0)/nrow(vmiss)*100)`% of variants have a missing genotype in at least one of the samples. 
 For those, we can plot the missing rate distribution:
 
-```{r}
+```{r vmiss-hist}
 vmiss |> 
   filter(f_miss > 0) |> 
   ggplot(aes(f_miss)) +
@@ -126,12 +133,12 @@ We can see most of these SNVs have relatively low rates of missing data.
 
 We can see how many variants would be discarded if we used the conventional 5% threshold: 
 
-```{r}
+```{r vmiss-fraction}
 sum(vmiss$f_miss > 0.05)/nrow(vmiss)
 ```
 
-At this threshold we will discard around `r round(sum(vmiss$f_miss > 0.05)/nrow(vmiss)*100)`% of variants, which is not a substantial number. 
-We can be satisfied that, in general, there are no major issues with our call rates.
+At this threshold we will discard a very small fraction of our variants. 
+We can therefore be satisfied that, in general, there are no major issues with our call rates.
 
 In our downstream analyses, we can exclude variants with >5% missing data by adding the option `--geno 0.05` to PLINK. 
 
@@ -142,7 +149,7 @@ In the [previous chapter](02-plink.qmd) we already saw how to calculate the alle
 
 We can read this file into R as usual:
 
-```{r}
+```{r afreq-read}
 afreq <- read_tsv("results/1000G_subset.afreq") |> 
   clean_names()
   
@@ -155,7 +162,7 @@ A more common approach is to visualise the **minor allele frequency (MAF)**, i.e
 
 We can calculate the MAF for each variant, adding it as a new column to our data frame, followed by a new histogram:
 
-```{r plot-maf}
+```{r maf-hist}
 # add a column of minor allele frequency
 afreq <- afreq |> 
   mutate(maf = ifelse(alt_freqs > 0.5, 1 - alt_freqs, alt_freqs)) 
@@ -170,7 +177,7 @@ We can see the histogram is quite skewed, with many SNPs having very low frequen
 In fact, some of them are not variable at all in our samples!
 We can quickly tabulate how many SNPs are above the commonly-used 1% threshold of allele frequency: 
 
-```{r}
+```{r maf-tabulate}
 table(afreq$maf > 0.01)
 ```
 
@@ -188,15 +195,21 @@ To exclude variants with low minor allele frequency, for example at a 1% thresho
 Another quality control step is to check whether SNPs significantly deviate from Hardy-Weinberg equilibrium, which is expected if individuals mate randomly. 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --hardy
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --hardy
 ```
 
 This outputs a file with `.hardy` extension, which we can read into R: 
 
-```{r}
+```{r hardy-read}
 hardy <- read_tsv("results/1000G_subset.hardy") |> 
   clean_names()
+  
+head(hardy)
+```
 
+One possible visualisation of these data is to plot the expected heterozygosity versus the observed heterozygosity and colour the points as to whether they are below a chosen p-value threshold:
+
+```{r hardy-scatter}
 hardy |> 
   # randomply sample SNPs 
   # to avoid plot window from crashing
@@ -243,6 +256,11 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --freq --hardy
 This would produce all three respective results files in one go. 
 :::
 
+<!-- 
+## LD prunning
+
+TODO
+-->
 
 ## Summary
 
