@@ -20,7 +20,7 @@ set.seed(123)
 :::
 
 
-## GLM
+## Fitting an association model
 
 Fitting a genotypic linear model to our traits with PLINK can be done using the `--glm` option (for "generalised linear model"). 
 We also need to provide a phenotype file, which is tab-delimited with the first two columns being the family and sample IDs, and remaining columns the traits. 
@@ -37,7 +37,11 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_nocovar \
   --glm allow-no-covars
 ```
 
-This command outputs one file for each trait. 
+We added a modifier to the `--glm` option called `allow-no-covars`. 
+This is because, by default, PLINK expects most standard GWAS to use covariates in the model to account for population structure, which is standard practice. 
+However, we want to explore first what happens if we ignore this aspect when running the association tests. 
+
+The `--glm` option generates one file for each trait. 
 The file extensions are `.glm.linear` for quantitative traits and `.glm.logistic.hybrid` for binary traits. 
 
 
@@ -59,21 +63,19 @@ theme_set(theme_minimal()) # change default ggplot2 theme
 
 ## Q-Q plots
 
-The results files are tab-delimited, which we can read into R as usual. 
+The results files from `--glm` are tab-delimited, which we can read into R as usual. 
 We start with one of our quantiative traits, blood pressure: 
 
-```{r}
+```{r blood-read}
 blood_nocovar <- read_tsv("results/1000G_subset_nocovar.blood.glm.linear") |> 
   clean_names()
 
 head(blood_nocovar)
 ```
 
-We can look at the distribution of our p-values using a histogram.
+As explained in the [previous chapter](06-stats.qmd), we start by looking at the distribution of our p-values using a histogram:
 
-http://varianceexplained.org/statistics/interpreting-pvalue-histogram/
-
-```{r}
+```{r blood-hist}
 blood_nocovar |> 
   ggplot(aes(p)) +
   geom_histogram(binwidth = 0.01)
@@ -82,11 +84,21 @@ blood_nocovar |>
 This looks relatively uniform towards the right-end of the distribution, but there's quite a sharp skew towards the low end. 
 This may indicate some p-value inflation due to unaccounted confounders. 
 
-Q-Q plot: 
+We can better visualise the issue of inflation using a **Q-Q plot**.
+For this, we need to calculate the expected p-values, corresponding to our observed ones. 
+We do this in two steps: 
 
-```{r}
+- Sorting our table by p-value, using the `arrange()` function.
+- Create a new column with as many data points, but uniformly split between 0 and 1 (the "uniform" distribution expectation). We can do this with the `ppoints()` ("probability points") function.
+
+Note that due to the very high number of data points (`r nrow(blood_nocovar)` in our case), it is often a good idea to plot a random sample of points, to avoid overloading the plotting device (at best it may be very slow to render the plots, at worse it may crash your R session).
+As in this case we are particularly interested in the low p-values, we retain all p-values below 0.01 and then randomly sample 5% of the rest.
+
+```{r blood-qqplot}
 blood_nocovar |> 
   arrange(p) |> 
+  # generate uniformly split points between 0-1
+  # also -log10 transform our p-values
   mutate(expected = -log10(ppoints(n())), 
          observed = -log10(p)) |> 
   # retain all p-values below 0.001
@@ -97,16 +109,24 @@ blood_nocovar |>
   geom_abline()
 ```
 
-Inflation factor:
+This plot clearly shows substantial inflation of our p-value distribution, as nearly all points fall above the expected diagonal. 
 
-```{r}
-median(qchisq(blood_nocovar$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
+We can calculate the so-called **inflation factor** for our p-values, which is derived from a χ² distribution. 
+An inflation factor of ~1 indicates no inflation, whereas values above that indicate an inflation relative to the null expectation. 
+
+Here is the code to calculate the inflation factor for our p-values:
+
+```{r blood-inflation}
+median(qchisq(blood_nocovar$p, df=1, lower.tail = FALSE), na.rm = T)/qchisq(0.5, 1)
 ```
 
+We get a value of ~3, which clearly indicates an inflation. 
+This is not surprising, as we already assessed that our data has substantial population structure, which will confound some of our analysis. 
 
-We can look a distribution of our trait value across world regions and see there are differences across the continents, which will counfound the results:
+One way to understand this confounding is to consider the distribution of our trait across world regions. 
+The code below reads the phenotype and sample metadata tables, and joins them together to generate a boxplot of blood pressure across countries.
 
-```{r}
+```{r pheno-boxplot}
 pheno <- read_tsv("data/phenotypes.tsv")
 sample_info <- read_tsv("data/sample_info.tsv")
 
@@ -116,10 +136,14 @@ sample_info |>
   geom_boxplot()
 ```
 
+As we can see, there are differences in the mean blood pressure of different populations. 
+This means that any genetic differences between those populations (due to non-random mating, drift, selection, etc.) may show as "significant" associations with blood pressure, causing false positives. 
 
-## Correct for population structure
 
-We now re-run the GLM, using PCA eigenvectors as covariates in the model:
+## Adjusting for population structure
+
+To avoid the confounding due to population structure, we can add the PCA scores as covariates to our GLM. 
+This is done using the `--covar` option:
 
 ```bash
 plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_pca \
@@ -130,18 +154,40 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_pca \
   --covar results/1000G_subset.eigenvec
 ```
 
-We can import and visualise the new results:
+As before, we import our results and re-assess the issue of p-value inflation. 
 
-```{r}
-blood_pca <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |> 
+```{r blood2-read}
+# import the results table
+blood_covar <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |> 
   clean_names()
-  
-# retain only the SNP test results
-blood_pca <- blood_pca |> 
-  filter(test == "ADD")
 
+head(blood_covar)
+```
+
+You may notice that this table, while similar to the previous before, has many more rows. 
+This is because we now have 10 covariates (each of the principal components from our PCA), and PLINK reports the statistical test for their association with the trait, in addition to the genotype association. 
+This is indicated in the `test` column: 
+
+```{r blood2-tests}
+# get the unique values in the "test" column
+unique(blood_covar$test)
+```
+
+We have test results for each PC as well as a test labelled "ADD". 
+This refers to the "additive genotypic effect", which is what we are interested in. 
+As we are not interested in the association between PCs and our trait, we exclude them from the table in downstream analysis:
+
+```{r blood2-filter}
+# retain only the SNP test
+blood_covar <- blood_covar |> 
+  filter(test == "ADD")
+```
+
+We can now make the same p-value diagnostic plots as before: 
+
+```{r blood2-pvals}
 # histogram of p-values
-blood_pca |> 
+blood_covar |> 
   arrange(p) |> 
   mutate(expected = -log10(ppoints(n())), 
          observed = -log10(p)) |> 
@@ -151,7 +197,7 @@ blood_pca |>
   labs(title = "P-value histogram")
 
 # qqplot
-blood_pca |> 
+blood_covar |> 
   arrange(p) |> 
   mutate(expected = -log10(ppoints(n())), 
          observed = -log10(p)) |> 
@@ -162,11 +208,17 @@ blood_pca |>
   labs(title = "Q-Q plot")
 ```
 
-Inflation factor:
+From the visualisations above, we can see the issue of p-value inflation seems to have been resolved, as most points in the Q-Q plot seem to fall in the line. 
+We can also calculate the inflation factor, which confirms this:
 
-```{r}
-median(qchisq(blood_pca$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
+```{r blood2-inflation}
+median(qchisq(blood_covar$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
 ```
+
+The value is now ~1, indicating no major issues. 
+
+The histogram and Q-Q plot also reveal an excess of very low p-values, which is a sign we have some significant (true) associations. 
+The next chapter explores how we can visualise these potential associations across our genome. 
 
 
 ## Summary

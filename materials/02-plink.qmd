@@ -95,7 +95,7 @@ You can see the structure of the command is:
 
 Most PLINK analysis options output their results to a file with an extension that is specific to that option.
 In the example of the `--freq` option, it outputs a file with `.afreq` extension. 
-This is detailed in detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats) of each option.
+This is detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats) of each option.
 
 
 ## Analysing PLINK files in R

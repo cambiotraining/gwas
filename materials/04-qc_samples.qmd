@@ -194,7 +194,9 @@ Others are close to ~1/8 (second degree relationships, e.g. cousins) and a few c
 
 To eliminate close relationships from downstream analysis, we can use PLINK's option `--king-cutoff 0.125` to eliminate at least second degree relationships.
 
-
+<!-- 
+TODO: prune SNPs; mention --keep results/1000G_subset.king.cutoff.in.id
+-->
 
 <!-- 
 

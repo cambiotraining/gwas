@@ -1,5 +1,6 @@
 ---
 title: "Genome-Wide Association Studies (GWAS)"
+pagetitle: "GWAS"
 date: today
 number-sections: false
 ---

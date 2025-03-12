@@ -8,7 +8,7 @@ knitr::opts_knit$set(root.dir = "../course_files")
 set.seed(123)
 ```
 
-# Statistical models for GWAS
+# Association tests and p-values
 
 :::{.callout-tip}
 #### Learning objectives
@@ -19,7 +19,7 @@ set.seed(123)
 :::
 
 
-## Association tests
+## Regression models
 
 At its simplest, the association test carried out by software such as PLINK is based on linear regression models. 
 Most GWAS software support two types of regression models, depending on the nature of the trait: **normal** regression for quantitative traits or **binomial (logistic)** regression for binary traits (case/control, yes/no, presence/absence).
@@ -75,10 +75,11 @@ This is done by using a t-statistic, which measures the "signal-to-noise" ratio 
 :::{.callout-note}
 #### Quantitative traits
 
-Quantitative traits may include both continuous type of data (e.g. bmi, height) as well as and discrete count data (e.g. cell count, cigarette consumption). 
-In generalised linear models, count data would usually be modelled using a more appropriate distribution rather than the Normal (e.g. a Poisson or Negative Binomial regression). 
+Quantitative traits may include both **continuous data** (e.g. bmi, height) as well as **discrete count data** (e.g. cell count, cigarette consumption). 
 
+With generalised linear models, count data would usually be modelled using a more appropriate distribution rather than the Normal (e.g. a Poisson or Negative Binomial regression). 
 However, these methods can be computationally expensive and so, in practice, software packages for GWAS usually only implement the normal regression model for quantitative traits. 
+Additionally, GWAS sample sizes tend to be large (in the hundreds, thousands, or even millions), and so the normal approximation is a reasonable assumption even for discrete count variables. 
 :::
 
 
@@ -160,7 +161,7 @@ This is exactly how it sounds like, it's the natural log of the odds ratio.
 This is also known as the logit function.
 
 I can be useful to convert probabilities to odds (or log-odds) and back. 
-Say an event has a 75% chancde of happening, we can calculate odds and log-odds easily: 
+Say an event has a 75% chance of happening. We can calculate odds and log-odds easily: 
 
 ```{r}
 # if you know your probability
@@ -186,6 +187,85 @@ plogis(log(odds))
 ```
 
 :::
+
+
+## P-value distribution
+
+In addition to the genotype effect (β or OR), another output of the statistical association test is the p-value of the statistical test for its significance. 
+The association test is performed separately for each variant, so we get as many p-value as there are variants. 
+One of the first steps when analysing the outcome of an association test is to assess potential biases, which can be diagnosed by looking at the p-value distribution.
+
+In statistical null hypothesis testing, there is a theoretical expectation that p-values follow a **uniform distribution** when no effect exists. 
+A p-value of 0.01 is just as likely as a p-value of 0.99 - it's all just due to random chance.
+In our case, this would mean no association between the trait and genotype. 
+
+```{r pval-null}
+#| echo: false
+#| fig-cap: Example of a distribution of p-values (10k tests) when the null hypothesis is always true.
+
+# simulate some p-value distributions
+set.seed(420)
+null_sim <- runif(10000)
+sig_sim <- sapply(1:10000, \(i){
+  effect <- 0
+  if(i < 100) effect <- rnorm(1, sd = 0.5)
+  t.test(rnorm(100, mean = effect))$p.value
+})
+
+
+tibble(x = null_sim) |> 
+  ggplot(aes(x)) +
+  geom_histogram(breaks = seq(0, 1, by = 0.01)) +
+  labs(x = "p-values")
+```
+
+In a multiple testing scenario such as GWAS, where many tests being performed (one per variant), we would expect that most variants follow this uniform distribution. 
+
+However, if some fraction of the variants are associated with the trait, this will skew the p-value distribution, leading to an excess of small p-values. 
+
+```{r pval-sig}
+#| echo: false
+#| fig-cap: Example of a distribution of p-values when the null hypothesis is false (i.e. a "statistically significant result") for a fraction of the tests.
+tibble(x = sig_sim) |> 
+  ggplot(aes(x)) +
+  geom_histogram(breaks = seq(0, 1, by = 0.01)) +
+  labs(x = "p-values")
+```
+
+There is an excellent post in the _Variance Explained_ blog, with further discussions on this topic: [How to interpret a p-value histogram, by David Robinson](http://varianceexplained.org/statistics/interpreting-pvalue-histogram/).
+
+
+### Q-Q plots
+
+Another way to assess the distribution of p-values is to produce a **Q-Q plot**, which is a type of scatterplot that compares the distribution of p-values under the expected uniform distribution and the actual observed p-values. 
+
+For Q-Q plots it is common to plot the p-values as $-log_{10}(p-value)$, which is a transformation that emphasises very small p-values. 
+As small p-values is what we expect to see for "significant" associations (and is what we're ultimately hoping to see!), this emphasises those very small values by transforming them into relatively large numbers. 
+
+Here are the Q-Q plots of the expected-versus-observed $-log_{10}(p-value)$ for each of the distributions shown above:
+
+```{r pval-qq}
+#| echo: false
+p1 <- tibble(observed = null_sim) |> 
+  arrange(observed) |> 
+  mutate(expected = ppoints(n())) |> 
+  ggplot(aes(-log10(expected), -log10(observed))) +
+  geom_point() +
+  geom_abline(colour = "firebrick")
+
+p2 <- tibble(observed = sig_sim) |> 
+  arrange(observed) |> 
+  mutate(expected = ppoints(n())) |> 
+  ggplot(aes(-log10(expected), -log10(observed))) +
+  geom_point() +
+  geom_abline(colour = "firebrick")
+  
+p1 + p2
+```
+
+The diagonal line indicates the expectation under the null hypothesis. 
+As we can see in the examples above, the plot on the left shows all points falling along the diagonal, indicating no significant associations. 
+The plot on the right, on the other hand, shows good fit for part of the distribution, but with an excess of small p-values as shown by a deviation of points towards the top of the graph. 
 
 
 ## Summary
