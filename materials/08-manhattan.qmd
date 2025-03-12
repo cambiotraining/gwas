@@ -20,21 +20,56 @@ set.seed(123)
 
 ## Manhattan plot
 
-```{r}
+:::{.callout-important}
+#### Set up your R session
+
+If you haven't done so already, start an R session with the following packages loaded: 
+
+```{r load-packages}
 # load the libraries
 library(tidyverse) # data manipulation
 library(patchwork) # to compose plots
 library(janitor)   # to clean column names
-theme_set(theme_minimal())
+theme_set(theme_minimal()) # change default ggplot2 theme
 ```
+
+:::
 
 
 Import the data and create custom theme for Manhattan plots: 
 
-```{r}
-coffee <- read_tsv("results/1000G_subset_nocovar.coffee.glm.linear") |> 
+```{r blood-read}
+# read the association test results including PCA covariates
+blood_covar <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |> 
   clean_names()
-  
+
+# retain only the SNP test
+blood_covar <- blood_covar |> 
+  filter(test == "ADD")
+
+head(blood_covar)
+```
+
+To make our Manhattan plot, we can use standard `ggplot2` functionality. 
+
+:::{.callout-note collapse="true"}
+#### `ggplot2` code explanation
+
+
+That is a very long `ggplot2` specification!
+Let's break it down: 
+
+- `filter()` is used to retain only p-values below 0.01 before plotting. This is done to reduce the number of points being plotted, to avoid crashing the plotting device. As we are not interested in high p-values, we retain only those below 0.01. 
+- `ggplot()` initiates the plot, with genome position as the x-axis and the $-log_{10}(p-value)$ as our y-axis. 
+- `geom_point()` displays points on the plot. 
+- `geom_hline()` adds a horizontal line at the genome-wide significance threshold of $5 \times 10^{-8}$, which is often used in human GWAS. 
+- `facet_grid()` splits the plot into panels, one per chromosome. We split the facets by "column", and we make sure that both the scale and the space allocated to each facet is allowed to vary for each chromosome. Finally, we switch the facet labels to appear at the bottom of the plot, for aesthetic reasons. You can try removing those options to see what happens.
+- `labs()` is used to edit the x-axis label and add a title to the plot. 
+- `theme_minimal()` and `theme()` are used together to make the plot more aesthetically pleasing, by removing x-axis labels, tick marks and gridlines.
+
+To save time, you can save some of this code in a variable, for example:
+
+```{r manhattan-theme}
 manhattan_theme <- theme_minimal() +
   theme(
     axis.text.x = element_blank(),
@@ -45,16 +80,66 @@ manhattan_theme <- theme_minimal() +
   )
 ```
 
+:::
+
+```{r blood-manhattan}
+blood_covar |> 
+  filter(p < 0.01) |> 
+  ggplot(aes(pos, -log10(p))) +
+  geom_point() +
+  geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
+  facet_grid(~ number_chrom, 
+             scale = "free_x", 
+             space = "free_x",
+             switch = "x") +
+  labs(x = "Chromosome", 
+       title = "Manhattan plot") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank(),
+    panel.spacing = unit(0.1, "lines"),
+    strip.background = element_blank()
+  )
+```
+
+The plot shows a genome-wide significant association in chromosome 5. 
+There are other regions that seem to contain peaks of association (e.g. on chromosomes 10 and 12), but these do not pass the genome-wide threshold. 
+
+
+## Regional plots
+
+Now that we have found an association with our trait, we may want to investigate it further. 
+One common visalisation is to make a "regional plot", where we zoom-in on a SNV of interest and make a Manhattan plot, colouring the points by the linkage coefficient to the target SNP. 
+
+First, let's identify our top-most associated SNV: 
+
+```{r top-snv}
+blood_covar |>
+  arrange(p) |>
+  select(number_chrom, pos, id, beta, p)
+```
+
+We can see at the top we have two SNPs with the same estimated β coefficient and p-value. 
+These must be two SNVs that have the same genotype across all individuals (i.e. they are in perfect linkage). 
+We arbitrarily choose "rs1158715" to proceed with our analysis. 
+
+We can calculate the linkage score for our target SNP using PLINK:
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_rs1158715 \
+  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
+  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \
+  --r2-unphased --ld-window-kb 500 --ld-snp rs1158715
+```
+
+
+----
+
 We can import and visualise the results:
 
-```{r}
-coffee_pca <- read_tsv("results/1000G_subset_pca.coffee.glm.linear") |> 
-  clean_names()
-  
-# retain only the SNP test results
-coffee_pca <- coffee_pca |> 
-  filter(test == "ADD")
-
+```r
 # histogram of p-values
 coffee_pval_hist <- coffee_pca |> 
   arrange(p) |> 
@@ -76,40 +161,21 @@ coffee_pval_qq <- coffee_pca |>
   geom_abline() + 
   labs(title = "Q-Q plot")
 
-# manhattan plot
-coffee_pval_man <- coffee_pca |> 
-  filter(p < 0.01) |> 
-  ggplot(aes(pos, -log10(p))) +
-  geom_point() +
-  geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
-  facet_grid(~ number_chrom, 
-             scale = "free_x", 
-             space = "free_x",
-             switch = "x") +
-  labs(x = "Chromosome", 
-       title = "Manhattan plot") +
-  manhattan_theme
 ```
 
 Compose plots: 
 
-```{r}
+```r
 ((coffee_pval_hist + coffee_pval_qq) / coffee_pval_man) + 
   plot_annotation(
     title = "Caffeine consumption (mg/day)"
   )
 ```
 
-Inflation factor:
-
-```{r}
-median(qchisq(coffee_pca$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)
-```
-
 
 ## Regional plots
 
-```{r}
+```r
 # Zoom in on one of the SNPs
 coffee_pca |> 
   filter(number_chrom == 7 & pos > 17244953 - 250e3 & pos < 17244953 + 250e3) |> 
@@ -133,7 +199,7 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
 
 Visualise:
 
-```{r}
+```r
 hit <- read_tsv("results/1000G_subset.vcor") |> 
   clean_names()
 
