@@ -249,9 +249,24 @@ head(king)
 ## Discordant sex
 
 :::{.callout-caution}
-Sorry, we're still working on this section. 
-In the meanwhile, you can look at PLINK's [documentation for the `--check-sex` option](https://www.cog-genomics.org/plink/2.0/basic_stats#check_sex).
+#### Work in progress 
+
+Sorry, this section isn't yet finished. 
+There's a brief explanation below, but we are still working on having data suitable to demonstrate this analysis. 
 :::
+
+Another thing that can be checked is whether the sex assigned to each of our samples is correct, based on the genetic data. 
+This relies on having genotypes in a sex chromosome and checking whether the heterozygosity matches the expectation. 
+For example, in humans males have one copy of the X chromosome, and females two. 
+Therefore, all males should be homozygous for variants in the X chromosome, whereas females may have a mixture of heterozygous and homozygous sites. 
+
+We can do this quality check using PLINK's `--check-sex` option: 
+
+```bash
+plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --check-sex
+```
+
+Unfortunately this does now work in our example data, as we are missing genotypes on the X chromosome. 
 
 
 ## Summary
