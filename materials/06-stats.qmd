@@ -165,7 +165,7 @@ This is also known as the logit function.
 I can be useful to convert probabilities to odds (or log-odds) and back. 
 Say an event has a 75% chance of happening. We can calculate odds and log-odds easily: 
 
-```{r}
+```{r prob-to-odds}
 # if you know your probability
 p <- 0.75
 
@@ -180,7 +180,7 @@ On the other hand, if you start from having the odds ratio, for example OR = 3, 
 first convert it to log-odds (or "logit"); then use the inverse-logit function to calculate the probability.
 Here's the R code: 
 
-```{r}
+```{r odds-to-prob}
 # if you know your odds
 odds <- 3
 

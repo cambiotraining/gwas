@@ -151,7 +151,7 @@ plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_rs1158715 \
 The `--r2-unphased` option outputs a file with `.vcor` (**v**ariant **cor**relation) extension. 
 As usual, this is a tab-delimited file, which we can read into R: 
 
-```{r}
+```{r read-cor}
 rs1158715 <- read_tsv("results/1000G_subset_rs1158715.vcor") |> 
   clean_names()
   
@@ -161,7 +161,7 @@ head(rs1158715)
 The table contains the correlation between genotypes in our SNV of interest (`id_a`) and each other SNV (`id_b`) within 500 kbp of it. 
 We can quickly look at the distribution of the correlation values:
 
-```{r}
+```{r cor-hist}
 rs1158715 |> 
   ggplot(aes(unphased_r2)) +
   geom_histogram(breaks = seq(0, 1, 0.02))
@@ -171,7 +171,7 @@ We can see that most SNVs have low correlation with our target SNP, but a few ha
 
 We can also see the expected decay in LD with distance from the target SNV:
 
-```{r}
+```{r cor-decay}
 rs1158715 |> 
   # add column with distance to target variant
   mutate(dist = abs(pos_a - pos_b)) |> 
@@ -188,7 +188,7 @@ We do this by:
 - Joining it with the correlation table (using the matching variant ids)
 - Producing a plot with genomic position on the x-axis, -log₁₀(p-value) on the y-axis, and setting the points colour and size by their correlation value.
 
-```{r}
+```{r regional-plot}
 blood_covar |> 
   # retain variants within 250kb each side of our target
   filter(number_chrom == 5 & pos > 32788263 - 250e3 & pos < 32788263 + 250e3) |> 
