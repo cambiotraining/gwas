@@ -16,6 +16,8 @@ set.seed(123)
 - Summarise the statistical methods used by PLINK to carry out trait-genotype association tests.
 - Interpret the effect sizes of an association in relation to individual genotypes. 
 - Distinguish how the interpretation of effect sizes differs for quantitative and binary trait models.
+- Recognise the expected properties of p-values from association tests and how to troubleshoot potential biases. 
+- Explain the need to define genome-wide thresholds of significance. 
 :::
 
 

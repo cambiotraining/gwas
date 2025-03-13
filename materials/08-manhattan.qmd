@@ -8,17 +8,26 @@ knitr::opts_knit$set(root.dir = "../course_files")
 set.seed(123)
 ```
 
-# Visualising GWAS
+# Visualising association results
 
 :::{.callout-tip}
 #### Learning objectives
 
-- Produce Manhattan plots to visualise the association results across the genome.
-- Explore the association results and refine visualisations to focus on particular regions of interest.
+- Summarise what a Manhattan plot displays and why it is useful in the context of GWAS.
+- Produce Manhattan plots using `ggplot2`.
+- Identify the top variants associated with a trait.
+- Calculate linkage disequilibrium statistics between a variant of interest and its neighbours. 
+- Produce a regional association plot that focuses on a region of interest.
 :::
 
 
-## Manhattan plot
+## Manhattan plots
+
+The most iconic data visualisation related to GWAS is the so-called **Manhattan plot**, which displays each variant as a point, with its genome position along the x-axis and its associated -log₁₀(p-value) on the y-axis. 
+Significant associations show as "peaks" passing through the genome-wide significance threshold, represented as a horizontal line. 
+Additionally, each chromosome is shown a separate panel, giving a complete genome-wide view of the association results. 
+
+In this section we show how to produce this and other visualisations of our association test results in R. 
 
 :::{.callout-important}
 #### Set up your R session
@@ -33,10 +42,8 @@ library(janitor)   # to clean column names
 theme_set(theme_minimal()) # change default ggplot2 theme
 ```
 
-:::
-
-
-Import the data and create custom theme for Manhattan plots: 
+As an example, we will continue with the results for the "blood pressure" trait. 
+Here is how to read it into R, if you haven't done so already:
 
 ```{r blood-read}
 # read the association test results including PCA covariates
@@ -46,21 +53,22 @@ blood_covar <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |>
 # retain only the SNP test
 blood_covar <- blood_covar |> 
   filter(test == "ADD")
-
-head(blood_covar)
 ```
 
+:::
+
+## Visualise GWAS results with `ggplot2`
+
 To make our Manhattan plot, we can use standard `ggplot2` functionality. 
+We use several features of this plotting library to make our plot more effective (see box below for details).
 
 :::{.callout-note collapse="true"}
 #### `ggplot2` code explanation
 
-
-That is a very long `ggplot2` specification!
-Let's break it down: 
+Here is the break down of our plotting code: 
 
 - `filter()` is used to retain only p-values below 0.01 before plotting. This is done to reduce the number of points being plotted, to avoid crashing the plotting device. As we are not interested in high p-values, we retain only those below 0.01. 
-- `ggplot()` initiates the plot, with genome position as the x-axis and the $-log_{10}(p-value)$ as our y-axis. 
+- `ggplot()` initiates the plot, with genome position as the x-axis and the -log₁₀(p-value) as our y-axis. 
 - `geom_point()` displays points on the plot. 
 - `geom_hline()` adds a horizontal line at the genome-wide significance threshold of $5 \times 10^{-8}$, which is often used in human GWAS. 
 - `facet_grid()` splits the plot into panels, one per chromosome. We split the facets by "column", and we make sure that both the scale and the space allocated to each facet is allowed to vary for each chromosome. Finally, we switch the facet labels to appear at the bottom of the plot, for aesthetic reasons. You can try removing those options to see what happens.
@@ -125,101 +133,86 @@ We can see at the top we have two SNPs with the same estimated β coefficient an
 These must be two SNVs that have the same genotype across all individuals (i.e. they are in perfect linkage). 
 We arbitrarily choose "rs1158715" to proceed with our analysis. 
 
-We can calculate the linkage score for our target SNP using PLINK:
+We can calculate the linkage score for our target SNP using PLINK: 
 
 ```bash
 plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_rs1158715 \
   --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
   --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \
-  --r2-unphased --ld-window-kb 500 --ld-snp rs1158715
+  --r2-unphased --ld-snp rs1158715 \
+  --ld-window-kb 500 --ld-window-r2 0.05
 ```
 
+- `--r2-unphased` calculates the correlation between pairs of SNVs.
+- `--ld-snp` indicates which is the target SNV we are interested in. 
+- `--ld-window-kb` restricts the calculation to SNVs within 500 kbp of the target SNV.
+- `--ld-window-r2` indicates what is the minimum r² we want reported. By default this is 0.2, here we lower this threshold for illustration purposes. In real analysis, it may be sensible to truncate the calculation at 0.2, to reduce the size of the output file. 
 
-----
+The `--r2-unphased` option outputs a file with `.vcor` (**v**ariant **cor**relation) extension. 
+As usual, this is a tab-delimited file, which we can read into R: 
 
-We can import and visualise the results:
-
-```r
-# histogram of p-values
-coffee_pval_hist <- coffee_pca |> 
-  arrange(p) |> 
-  mutate(expected = -log10(ppoints(n())), 
-         observed = -log10(p)) |> 
-  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.01)) |> 
-  ggplot(aes(p)) +
-  geom_histogram(binwidth = 0.01) +
-  labs(title = "P-value histogram")
-
-# qqplot
-coffee_pval_qq <- coffee_pca |> 
-  arrange(p) |> 
-  mutate(expected = -log10(ppoints(n())), 
-         observed = -log10(p)) |> 
-  filter(p <= 0.001 | (p > 0.001 & runif(n()) < 0.01)) |> 
-  ggplot(aes(expected, observed)) +
-  geom_point() +
-  geom_abline() + 
-  labs(title = "Q-Q plot")
-
-```
-
-Compose plots: 
-
-```r
-((coffee_pval_hist + coffee_pval_qq) / coffee_pval_man) + 
-  plot_annotation(
-    title = "Caffeine consumption (mg/day)"
-  )
-```
-
-
-## Regional plots
-
-```r
-# Zoom in on one of the SNPs
-coffee_pca |> 
-  filter(number_chrom == 7 & pos > 17244953 - 250e3 & pos < 17244953 + 250e3) |> 
-  mutate(label = ifelse(p == min(p), 
-                        paste(number_chrom, pos, sep = ":"),
-                        NA)) |> 
-  ggplot(aes(pos, -log10(p))) +
-  geom_point() +
-  geom_text(aes(label = label), hjust = -0.1) +
-  geom_hline(yintercept = -log10(5e-8), linetype = "dashed")
-```
-
-Calculate LD for target SNP:
-
-```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
-  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
-  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \
-  --r2-unphased --ld-window-kb 500 --ld-snp rs4410790
-```
-
-Visualise:
-
-```r
-hit <- read_tsv("results/1000G_subset.vcor") |> 
+```{r}
+rs1158715 <- read_tsv("results/1000G_subset_rs1158715.vcor") |> 
   clean_names()
+  
+head(rs1158715)
+```
 
-coffee_pca |> 
-  filter(number_chrom == 7 & pos > 17244953 - 250e3 & pos < 17244953 + 250e3) |> 
-  mutate(label = ifelse(p == min(p), 
-                        paste(number_chrom, pos, sep = ":"),
-                        NA)) |> 
-  left_join(hit, by = c("id" = "id_b")) |> 
+The table contains the correlation between genotypes in our SNV of interest (`id_a`) and each other SNV (`id_b`) within 500 kbp of it. 
+We can quickly look at the distribution of the correlation values:
+
+```{r}
+rs1158715 |> 
+  ggplot(aes(unphased_r2)) +
+  geom_histogram(breaks = seq(0, 1, 0.02))
+```
+
+We can see that most SNVs have low correlation with our target SNP, but a few have very high correlation. 
+
+We can also see the expected decay in LD with distance from the target SNV:
+
+```{r}
+rs1158715 |> 
+  # add column with distance to target variant
+  mutate(dist = abs(pos_a - pos_b)) |> 
+  # plot with a trend line added
+  ggplot(aes(dist, unphased_r2)) +
+  geom_point() +
+  geom_smooth(se = FALSE)
+```
+
+Finally, we can produce a **regional association plot**, which displays the strength of association as well as the correlation with the variants surrounding our peak variant.
+We do this by:
+
+- Filtering our GLM results table to focus on the region of interest.
+- Joining it with the correlation table (using the matching variant ids)
+- Producing a plot with genomic position on the x-axis, -log₁₀(p-value) on the y-axis, and setting the points colour and size by their correlation value.
+
+```{r}
+blood_covar |> 
+  # retain variants within 250kb each side of our target
+  filter(number_chrom == 5 & pos > 32788263 - 250e3 & pos < 32788263 + 250e3) |> 
+  # join with our LD table
+  left_join(rs1158715, by = c("id" = "id_b")) |> 
+  # for SNVs with no correlation value (below 0.05)
+  # we set them to 0 for plotting purposes
   mutate(unphased_r2 = ifelse(is.na(unphased_r2), 0, unphased_r2)) |> 
-  mutate(unphased_r2 = ifelse(p == min(p), 1, unphased_r2)) |> 
+  # for the target variant itself, we set it to 1
+  mutate(unphased_r2 = ifelse(id == "rs1158715", 1, unphased_r2)) |> 
+  # plot
   ggplot(aes(pos, -log10(p))) +
   geom_point(aes(colour = unphased_r2, size = unphased_r2)) +
-  geom_text(aes(label = label), hjust = -0.1) +
   geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
   scale_colour_gradient2(low = "#313695", 
                          mid = "#ffffbf", 
                          high = "#a50026", 
                          midpoint = 0.5)
 ```
+
+This visualisation clearly shows a cluster of variants in close proximity of the target variant and with high genotype correlation to it. 
+
+This visualisation is useful not only to display our results, but also to help us prioritise which variants to focus on in downstream analyses.
+
 
 ## Summary
 
