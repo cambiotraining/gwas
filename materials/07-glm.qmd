@@ -15,7 +15,7 @@ set.seed(123)
 
 - Fit a GLM model to trait data using PLINK both with and without covariates.
 - Generate Q-Q plots for the p-values from the association test, to assess over- or under-inflation issues.
-- Recognise and apply correction for population structure in the GLM model.
+- Recognise and adjust for population structure in the GLM model.
 
 :::
 

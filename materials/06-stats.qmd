@@ -117,20 +117,30 @@ tibble(genotypes = xs, trait = ys) |>
   scale_x_continuous(breaks = 0:2)
 ```
 
-For binary traits, the strength of the relationship between trait and genotype is expressed as an **odds ratio (OR)**, i.e. the ratio of the probability that the event occurs over the probability that it doesn't: 
+For binary traits, the strength of the relationship between trait and genotype is expressed as an **odds ratio (OR)**, which compares the odds that the event happens in one group versus another. 
+Let's break this down. 
+First, we define the odds of an event, which is the probability that the event occurs over the probability that it doesn't: 
 
 $$
-\text{Odds Ratio} = \frac{p}{1 - p}
+\text{Odds} = \frac{p}{1 - p}
 $$
 
-Taking a concrete example, if our trait is "type 2 diabetes", the odds ratio represents the probability change in having this condition, relative to not having it:
+Taking a concrete example, if our trait is "type 2 diabetes", the odds represents the probability change in having this condition, relative to not having it:
 
 $$
-\text{Odds Ratio} = \frac{\text{probability diabetes}}{\text{probability healthy}}
+\text{Odds} = \frac{\text{probability diabetes}}{\text{probability healthy}}
 $$
 
-One important thing to consider is that the coefficients of logistic regression models are multiplicative.
-For example, if the estimate for a given variant was OR = 3, the interpretation in terms of genotypes is:
+An odds ratio is then the ratio of odds between two groups. 
+In the context of GWAS, we report odds ratios per-allele increase, i.e. between a group that has 1 allele versus the group without that allele. 
+Taking our T2D example and assuming the "AA" genotype is our reference group, then the odds ratio would be: 
+
+$$
+\text{Odds Ratio} = \frac{\text{odds diabetes for genotype AB}}{\text{odds diabetes for genotype AA}}
+$$
+
+One important thing to consider is that **odds ratios are multiplicative**.
+For example, if the estimate for a given variant was OR = 3 per allele, the interpretation in terms of genotypes is:
 
 - Genotype AA: baseline group (carrying zero "B" alleles).
 - Genotype AB: 3 times more likely to have the condition than AA.
