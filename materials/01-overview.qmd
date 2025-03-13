@@ -4,19 +4,22 @@ pagetitle: GWAS
 
 # GWAS overview
 
-::: {.callout-tip}
-#### Learning Objectives
+**Genome-wide Association Studies** aim to identify the genetic underpinning of complex traits. 
+A complex trait is one that is affected not by a single genetic cause (i.e. a mendelian trait), but rather by several genetic variants.
+Height in humans is the canonical example of a complex trait: current studies estimate upwards of 10k variants associated with this trait ([Yengo et al. 2022](https://doi.org/10.1038/s41586-022-05275-y)). 
 
-- TODO
-:::
+GWAS achieves this by identifying statistical associations between a genetic variant and a trait of interest. 
+Such associations, while not necessarily causal, indicate the region(s) of the genome where putative causal genetic variation exists to explains the trait. 
+GWAS therefore has many applications, from understanding disease, the evolution of quantitative traits, improvements in crop breeding, amongst many others. 
 
+These materials cover the practical implementation of running a GWAS analysis on a set of traits using the software **PLINK**. 
+The following topics are covered: 
 
-TODO
+- The basics of how to use the **PLINK software**.
+- Performing **quality control** of the genetic data, both at the variant and sample levels. 
+- Identifying sources of confounding, in particular discussing the issue of **population structure**. 
+- The basic **statistical concepts** behind GWAS and how to interpret their results. 
+- How to run an association analysis using PLINK, including adjusting for population structure **confounders**. 
+- Visualising the results to produce **Manhattan plots** and **regional association plots**. 
 
-## Summary
-
-::: {.callout-tip}
-#### Key Points
-
-- TODO
-:::
+These materials use human data as an example to run the analyses, but the principles apply to other organisms. 
