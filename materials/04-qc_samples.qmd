@@ -274,5 +274,13 @@ Unfortunately this does now work in our example data, as we are missing genotype
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- Key metrics for sample-level quality control include: call rate, heterozygosity, relatedness and sex assignment. 
+- Call rates (`--missing`): samples with low call rates (e.g. <95% or >5% missing genotypes) are typically excluded. 
+  - To remove samples missing genotypes above a certain threshold use `--mind X` (replace `X` with the desired fraction, e.g. 0.05). 
+- Heterozygosity (`--het`): samples that are outlier with regards to the number of heterozygous variants relative to other samples are typically excluded as they may represent errors (e.g. mixed samples or genotyping errors). 
+  - It is common practice to remove samples a certain number of standard deviations away from the observed distribution (e.g. +/- 3 SDs). 
+  - However, this should only be applied to samples from relatively homogenous populations, as different sub-populations may have different distributions. 
+- Sample relatedness (`--king`): even when individuals are thought to be unrelated, there may be some criptic relatedness that was previously unknown. Excluding very close relatives is best-practice to avoid biasing downstream association tests.
+  - To exlude individuals above a certain kinship score threshold use `--king-cutoff X` (replace `X` with the desired threshold). Common thresholds include 1/4 for full siblings, 1/8 for second degree relatives and 1/16 for third degree relatives. 
+- Discordant sex (`--check-sex`): it is good practice to check if the sex assigned to the individual (specified in the `.psam`/`.fam` file) matches the sex from genetic data. This can be determined from genotypes in the sex chromosomes. Individual with discordant sex may either be corrected or removed from the analysis. 
 :::

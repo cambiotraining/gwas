@@ -146,5 +146,15 @@ We will likely need to do some filtering before proceeding with our analysis, wh
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- PLINK is a widely-used software for GWAS, as it includes a wide range of functions, from quality control to downstream analysis. 
+- PLINK requires three critical types of input: 
+  - Genotype data (`.pgen`/`.bed`).
+  - Information about genetic variants (`.pvar`/`.bim`).
+  - Information about the samples (`.psam`/`.fam`).
+- A typical PLINK command will include:
+  - Option specifying the input files' prefix: `--pfile` (or `--bfile` if using the older formats).
+  - Option specifying the output files' prefix: `--out`.
+  - Other options specifying the task we want it to 
+- PLINK generates output files with specific extensions for each option it provides. All file extensions are [detailed in the documentation](https://www.cog-genomics.org/plink/2.0/formats). 
+- Most of PLINK's output files are simple text files with tab-separated values (TSV), which can therefore be imported to standard data analysis software such as R. 
 :::

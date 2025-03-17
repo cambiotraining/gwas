@@ -267,5 +267,12 @@ TODO
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- Key metrics for variant-level quality control include: call rate, minor allele frequency and Hardy-Weinberg equilibrium.
+- Call rates (`--missing`): variants with low call rates (e.g. <95% or >5% missing data) are typically excluded. 
+  - To remove variants with missing data above a certain threshold use `--geno X` (replace `X` with the desired fraction, e.g. 0.05). 
+- Minor allele frequency (`--maf`): very rare variants (e.g. <1%) have low statistical power and are usually removed from downstream analysis. 
+  - To remove variants with MAF below a certain threshold use `--maf X` (replace `X` with the desired frequency, e.g. 0.01).
+- Hardy-Weinberg equilibrium: variants for which genotype frequencies of homozygotes and heterozygous individuals deviate from expectation are removed as they may be due to genotyping errors, inbreeding, and other causes. 
+  - Care should be taken with this statistic, as an excess of homozygotes is expected if there are different sub-populations within the sample being analysed (e.g. samples from different geographic regions). 
+  - Genotyping errors usually result in an excess of heterozygous, and these can be removed using `--hwe X keep-fewhe` (replace `X` with a p-value threshold, typically a low value such as 0.001). 
 :::

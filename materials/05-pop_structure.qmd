@@ -13,13 +13,15 @@ set.seed(123)
 :::{.callout-tip}
 #### Learning objectives
 
-- Identify population structure in a collection of samples and explain how this may confound GWAS results.
+- Define what is meant by population structure and how it may confound GWAS results. 
+- Run Principal Components Analysis (PCA) on genetic data to investigate if individuals cluster based on genetic similarity.
+- Visualise the PCA results together with sample metadata such as geographic region.
 :::
 
 
 ## Population stratification
 
-Populations from different geographic regions may genetically diverge from each other due to evolutionary processes such as drift, selection, bottlenecks, etc. 
+Populations from different geographic regions may genetically diverge from each other due to evolutionary processes such as drift, selection, migration, bottlenecks, etc. 
 This creates patterns in the genetic background of the individuals from these populations, such that we can, for example, infer their ancestry from their genome sequences. 
 This is what we refer to as **population structure**.
 
@@ -204,12 +206,18 @@ As we suspected, this very clearly shows individuals clustering by the world reg
 We can also see some spread of points within each world region. 
 This is likely due to even further population structure, as individuals within these regions also come from different countries. 
 
-This population stratification will have to be taken into account when we run our association analysis, which is the topic of the next chapter. 
+Another way in which PCA can be used, is in detecting **outlier individuals**, i.e. individuals that cluster outside of their expected geographic region. 
+It may be best to remove such individuals, as their metadata and/or genotype data may be innacurate. 
+
+Population stratification needs to be taken into account when we run our association analysis, which is the topic of the next chapter. 
 
 ## Summary
 
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- Population structure refers to the presence of genetic subgroups within a population, which may be caused by evolutionary (e.g. drift and selection) and demographic events (e.g. migration and bottlenecks).
+- Population structure may confound GWAS results as false-positive associations may be found for traits that differ across those sub-populations. 
+- A common way to assess the presence of population structure is to run Principal Components Analysis on the genetic data, and assess the clustering of individuals on a PCA plot. 
+- Together with metadata, PCA can also be used to assess if an individual is an outlier from its assigned population (e.g. if an individual labelled as European clusters with individuals from East Asia).
 :::
