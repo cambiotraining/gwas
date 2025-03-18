@@ -197,7 +197,7 @@ eigenvec |>
   ggplot(aes(pc1, pc2, colour = super_pop)) +
   geom_point() +
   labs(x = paste0("PC1 (", round(eigenval$pct_var[1]), "%)"), 
-       y = paste0("PC1 (", round(eigenval$pct_var[1]), "%)"), 
+       y = paste0("PC2 (", round(eigenval$pct_var[2]), "%)"), 
        colour = "World Region")
 ```
 

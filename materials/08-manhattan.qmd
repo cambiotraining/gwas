@@ -219,5 +219,11 @@ This visualisation is useful not only to display our results, but also to help u
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- Manhattan plots display the results of the association tests for each variant: 
+  - Each variant is displayed along the x-axis according to its genome position.
+  - The y-axis shows the strenght of association as -log₁₀(p-value).
+- Manhattan plots can be produced using standard `ggplot2` functionality, in particular taking advantage of the `facet_grid()` function and custom themes. 
+- Once a variant of interest is identified, its correlation with neighbouring variants can be calculated (a measure of LD between neighbouring variants). 
+  - A combination of PLINK's options can be used to calculate LD around a target variant: `--r2-unphased`, `--ld-snp`, `--ld-window-kb` and `--ld-window-r2`.
+- Regional association plots are a zoomed-in version of a Manhattan plot, additionally displaying the LD with a target variant using a colour scale. 
 :::

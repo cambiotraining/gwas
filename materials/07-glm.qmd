@@ -226,5 +226,9 @@ The next chapter explores how we can visualise these potential associations acro
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- The `--glm` option in PLINK can be used to fit a generalised linear model to the trait data. 
+  - This option automatically detects whether the trait(s) provided are binary or quantitative. 
+- Q-Q plots are an essential tool to assess p-value inflation in the association results. 
+- One method to adjust for population structure is to add the PCA scores as covariates to the linear model.
+  - The option `--covar` can be used to give a file of covariate variables to PLINK's model. 
 :::

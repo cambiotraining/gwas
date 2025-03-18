@@ -137,7 +137,7 @@ afreq |>
   geom_histogram(binwidth = 0.01)
 ```
 
-We can see many variants with a frequency close to zero for the alternative allele, indicating a high fraction of missing genotypes. 
+We can see many variants with a frequency close to zero for the alternative allele, indicating a high fraction of variants may be very rare or even not vary in this collection of samples. 
 We will likely need to do some filtering before proceeding with our analysis, which is the topic of the next chapters. 
 
 

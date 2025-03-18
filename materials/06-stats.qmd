@@ -285,5 +285,14 @@ The plot on the right, on the other hand, shows good fit for part of the distrib
 ::: {.callout-tip}
 #### Key Points
 
-- TODO
+- The statistical methods used for association analysis are based on linear regression models. 
+- Quantitative traits are analysed using normal linear regression, whereas binary traits are modelled using binomial (logistic) regression. 
+- The effect sizes of quantitative traits are reported as unit increase per allele and can be interpreted linearly. 
+- The effect sizes of binary traits are reported as odds ratios per allele and are multiplicative. 
+- In a multiple testing setting, p-values are expected to follow a uniform distribution under the null hypothesis. 
+- In general, the distribution of the observed p-values should follow the uniform expectation, except for a few variants that are associated with the trait. 
+  - Q-Q plots can be used to assess the expected versus observed p-value distributions. 
+  - Large deviations from expectation may indicate biases in the analysis that lead to p-value inflation.
+- Due to multiple testing, a stringent p-value threshold is needed.
+  - For human GWAS p-value thresholds have been determined based on the general LD patterns observed across the human genome. 
 :::
