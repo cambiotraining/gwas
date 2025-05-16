@@ -1,0 +1,17 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Population-aware QC
+
+## Hardy-Weinberg equilibrium
+
+## Inbreeding
+
+## Population outliers

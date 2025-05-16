@@ -60,14 +60,17 @@ As we saw before, the option `--missing` generates missingness files for both sa
 However, here it is as a reminder: 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --missing
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --missing
 ```
 
 For the sample missingness report the file extension is `.smiss`, which we can import into R as usual:
 
 ```{r smiss-read}
 smiss <- read_tsv("results/1000G_subset.smiss") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 # inspect the table
 head(smiss)
@@ -79,7 +82,7 @@ We can tabulate how many samples have missing genotypes:
 table(smiss$missing_ct > 0)
 ```
 
-Around 20% of our samples have missing data in at least one of the variants. 
+Around `r round(mean(smiss$missing_ct > 0)*100)`% of our samples have missing data in at least one of the variants. 
 
 For those samples with some missing data, we can check the distribution of the fraction of missing genotypes:
 
@@ -96,32 +99,95 @@ A filter is probably not even necessary in this case, as no sample seems to have
 In any case, individuals with high rates of missing data, e.g. using the 5% threshold, can be excluded using PLINK's option `--mind 0.05`. 
 
 
-## Heterozygosity
+## Heterozygosity and inbreeding
 
-Another useful metric to assess issues with sample quality is to look at the fraction of variants that are heterozygous. 
+Another useful metric to assess issues with sample quality is to look at the fraction of variants that are heterozygous, or conversely what the **inbreeding coefficient** of each individual is. 
 In general, we expect an individual to have both homozygous and heterozygous genotypes. 
 Individuals with high heterozygosity may represent poor quality samples (e.g. contaminated samples composed of a mixture of DNA from two individuals). 
-Conversely, individuals with high homozygosity may indicate inbreeding, which can impact the balance of allele frequencies in the population (as discussed in the Hardy-Weinberg equilibrium section) and potentially bias the results of our association tests. 
+Conversely, individuals with high homozygosity may indicate inbreeding, which can impact the balance of allele frequencies in the population (as discussed in the [Hardy-Weinberg equilibrium section](03-qc_variants.qmd#hardy–weinberg)) and potentially bias the results of our association tests. 
 
 There isn't necessarily a clear value, but within a population we should expect the distribution of heterozygosity to be consistent across individuals. 
 If an individual is an outlier (e.g. with too many homozygous or heterozygous sites), then we may infer some quality issues may have ocurred with that sample. 
 
-PLINK can calculate per-sample heterozygosity rates using the option `--het`, applying the variant filters defined in the [variant QC section](03-qc_variants.qmd):
+PLINK can calculate per-sample heterozygosity rates using the option `--het`:
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --het
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --extract results/1000G_subset.prune.in \
+  --geno 0.05 --maf 0.01 --mind 0.05 \
+  --het
 ```
+
+In this command we also apply the variant filters defined in the [variant QC section](03-qc_variants.qmd). 
+Namely, retaining genotypes and samples with a call rate of at least 95% (`--geno 0.05 --mind 0.05`) and minor allele frequency of at least 1% (`--maf 0.01`).
+And use the `--extract` option to only include uncorrelated variants, obtained by LD prunning.
 
 The output file has extension `.het`, which we can import into R:
 
 ```{r het-read}
 het <- read_tsv("results/1000G_subset.het") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
 
 head(het)
 ```
 
-We can make a histogram of the fraction of homozygous individuals:
+We have four values for each individual: 
+
+- `o_hom` is the number of observed homozygous genotypes.
+- `e_hom` is the expected number of homozygous genotypes, based on the allele frequencies in the population and under Hardy-Weinberg equilibrium (HWE).
+- `obs_ct` is the number of non-missing genotypes.
+- `f` is the inbreeding coefficient, which represent the individual heterozygosity relative to the expectation under HWE (see box below for details on its calculation). 
+
+:::{.callout-note collapse="true"}
+#### Inbreeding coefficient calculation
+
+Let's call $H_{obs}$ the observed fraction of heterozygote variants in an individual and $H_{exp}$ the expected heterozygosity under Hardy-Weinberg equilibrium (HWE).
+
+The inbreeding coefficient is usually defined as:
+
+$$
+F = 1 - \frac{H_{obs}}{H_{exp}}
+$$
+
+I.e., it is the difference between the expected and observed heterozygosity, divided by the expected heterozygosity.
+
+- A value of 0 would indicate that the individual is heterozygous at the expected rate, since $H_{obs} = H_{exp}$.
+- A value of 1 would indicate that the individual is completely homozygous, since $H_{obs} = 0$.
+- If $H_{obs} < H_{exp}$, then the inbreeding coefficient will be between 0 and 1, indicating different levels of homozygosity or inbreeding.
+- If $H_{obs} > H_{exp}$, then the individual is more heterozygous than expected under HWE and the inbreeding coefficient takes negative values.
+
+Rather than reporting the observed and expected heterozygosity, PLINK reports things as counts of homozygous variants. 
+Because all of these can be calculated from each other, we can rearrange the equation above to express the inbreeding coefficient in terms of the number of homozygous genotypes.
+
+Let's call $O_{hom}$ the number of observed homozygous genotypes, $E_{exp}$ the number of expected homozygous genotypes and $O_{total}$ the total number of variants.
+Then, the equation above could be written as:
+
+$$
+F = 1 - \frac{O_{total} - O_{hom}}{O_{total} - E_{hom}}
+$$
+
+Which we can further rearrange to:
+
+$$
+F = \frac{O_{hom} - E_{hom}}{O_{total} - E_{hom}}
+$$
+
+We can confirm this is how PLINK calculates the inbreeding value:
+
+```{r inbreeding-coefficient}
+het |> 
+  mutate(f2 = (o_hom - e_hom) / (obs_ct - e_hom))
+```
+
+:::
+
+Let's consider the distribution of inbreeding coefficients for the individuals in our sample. 
+A value of 0 indicates that the individual is heterozygous at the expected rate, while a value of 1 indicates that the individual is completely homozygous.
+Negative values indicate that the individual is more heterozygous than expected under HWE.
+
+We can make a histogram of the inbreeding coefficient:
 
 ```{r het-histogram}
 het |> 
@@ -129,13 +195,137 @@ het |>
   geom_histogram()
 ```
 
-This gives a very suspicious distribution. 
-We clearly have different groups of samples, some with higher rates of homozygosity and others with lower rates. 
+In general we can see there are no individuals with very extreme inbreeding values (e.g. close to 1). 
+We can see some individuals with slightly negative values, indicating they are more heterozygous than expected under HWE.
+
+The main issue we see is that the distribution is multi-modal.
+This indicates that we have different groups of samples, some with higher rates of inbreeding and others with lower rates. 
 
 This is likely a consequence of the fact we have individuals from different populations (geographic areas). 
 This is an issue we will come back to in the **population structure** chapter. 
 
 For now, it is clear that we cannot easily filter samples based on their heterozygosity, as the populations are heterogeneous. 
+
+<!-- 
+### Stratifying the analysis by population
+
+Ideally, we should calculate the inbreeding coefficient separately for each population, as the HWE assumes that the population is homogenous.
+We can do this by using the `--keep-if` option in PLINK, which allows us to specify a condition on which to keep individuals.
+
+If we examine our `.psam` file, we can see that the population is specified in the last column and a "super population" in the third column:
+
+```bash
+head -n 5 data/plink/1000G_subset.psam
+```
+
+```
+#IID     SEX  SuperPop  Population
+HG00097  2    EUR       GBR
+HG00107  1    EUR       GBR
+HG00108  1    EUR       GBR
+HG00109  1    EUR       GBR
+```
+
+We can see how many individuals we have in each population (country):
+
+```bash
+tail -n +2 data/plink/1000G_subset.psam | cut -f 4 | sort | uniq -c
+```
+
+```
+37 ACB
+22 ASW
+43 BEB
+34 CDX
+40 CEU
+
+... more lines ommitted ...
+```
+
+And in each continent (super population):
+
+```bash
+tail -n +2 data/plink/1000G_subset.psam | cut -f 3 | sort | uniq -c
+```
+
+```
+273 AFR
+140 AMR
+207 EAS
+208 EUR
+209 SAS
+```
+
+As we have less than 100 individuals in each country, let's focus on the super populations and hope that those are more homogenous than the entire population of samples.
+For example, to calculate the inbreeding coefficient for individuals from the EUR population, we can use the following command:
+
+```bash
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset_EUR \
+  --keep-if "SuperPop == EUR" \
+  --extract results/1000G_subset.prune.in \
+  --geno 0.05 --maf 0.01 --mind 0.05 \
+  --het
+```
+
+Let's consider the distribution of inbreeding coefficients for this population:
+
+```{r het-histogram-eur}
+het_eur <- read_tsv("results/1000G_subset_EUR.het") |> 
+  clean_names(replace = c("#" = ""))
+het_eur |>
+  ggplot(aes(f)) +
+  geom_histogram() +
+  labs(title = "Inbreeding coefficient for EUR individuals")
+```
+
+Ah, that's better!
+We can see that the distribution is now centred at zero with a reasonably normal distribution.
+We can see some individuals who migth be potential outliers, which we will exclude after considering the other populations. 
+
+Here is how we could automate the process of calculating the inbreeding coefficient for all populations:
+
+```bash
+# get the list of populations
+populations=$(tail -n +2 data/plink/1000G_subset.psam | cut -f 3 | sort | uniq)
+
+# loop over the populations
+for pop in $populations; do
+  plink2 \
+    --pfile data/plink/1000G_subset \
+    --out results/1000G_subset_${pop} \
+    --keep-if "SuperPop == ${pop}" \
+    --extract results/1000G_subset.prune.in \
+    --geno 0.05 --maf 0.01 --mind 0.05 \
+    --het
+done
+```
+
+```{r all-het-histogram}
+# read all files
+het_all <- read_tsv(list.files("results", pattern = "1000G_subset_.*.het", full.names = TRUE)) |> 
+  clean_names(replace = c("#" = ""))
+
+het_all |>
+  ggplot(aes(f)) +
+  geom_histogram(binwidth = 0.01) +
+  labs(title = "Inbreeding coefficient for all individuals")
+```
+
+This is a very nice distribution, with most individuals having an inbreeding coefficient close to zero.
+We can see some individuals with very high inbreeding coefficients, which we can consider as outliers.
+
+We can remove outliers by retaining only individuals with an inbreeding coefficient within 3 standard deviations from the mean.
+
+```{r het-outliers}
+het_all |> 
+  filter(f > mean(f) - 3*sd(f) & f < mean(f) + 3*sd(f)) |> 
+  ggplot(aes(f)) +
+  geom_histogram(binwidth = 0.01) +
+  labs(title = "Inbreeding coefficient for all individuals (outliers removed)")
+``` 
+-->
 
 
 ## Sample relatedness
@@ -144,7 +334,12 @@ One other thing that can be considered is whether there are potential relationsh
 In our dataset all samples are supposed to be unrelated. 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --geno 0.05 --maf 0.01 --mind 0.05 --make-king-table
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --extract results/1000G_subset.prune.in \
+  --geno 0.05 --maf 0.01 --mind 0.05 \
+  --make-king-table
 ```
 
 This outputs a file with format `.kin0`, which contains pairwise kinship coefficients for each pair of samples. 
@@ -152,7 +347,7 @@ We can read this table into R as usual:
 
 ```{r king-read}
 king <- read_tsv("results/1000G_subset.kin0") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 head(king)
 ```
@@ -193,10 +388,6 @@ We see a few individuals have a kinship coefficient of ~1/4, which is indicative
 Others are close to ~1/8 (second degree relationships, e.g. cousins) and a few close to ~1/16 (third degree relationship). 
 
 To eliminate close relationships from downstream analysis, we can use PLINK's option `--king-cutoff 0.125` to eliminate at least second degree relationships.
-
-<!-- 
-TODO: prune SNPs; mention --keep results/1000G_subset.king.cutoff.in.id
--->
 
 <!-- 
 

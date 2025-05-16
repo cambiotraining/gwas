@@ -68,7 +68,7 @@ We start with one of our quantiative traits, blood pressure:
 
 ```{r blood-read}
 blood_nocovar <- read_tsv("results/1000G_subset_nocovar.blood.glm.linear") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
 
 head(blood_nocovar)
 ```
@@ -159,7 +159,7 @@ As before, we import our results and re-assess the issue of p-value inflation.
 ```{r blood2-read}
 # import the results table
 blood_covar <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
 
 head(blood_covar)
 ```

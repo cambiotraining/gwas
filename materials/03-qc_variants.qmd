@@ -17,6 +17,7 @@ set.seed(123)
 - Use PLINK to calculate genotype call rates, minor allele frequency and deviations from Hardy-Weinberg equilibrium.
 - Analyse quality metric results in R and assess the need for filtering in downstream analyses. 
 - Discuss how these quality metrics are impacted by population structure. 
+- Produce a set of uncorrelated variants using linkage disequilibrium pruning.
 :::
 
 ## Per-variant metrics
@@ -61,7 +62,10 @@ This threshold may vary, however, depending on the nature of data you have.
 - Run PLINK with that option, recalling the basic command structure: 
 
     ```bash
-    plink2 --pfile data/plink/1000G_subset --out results/1000G_subset OPTION-HERE
+    plink2 \
+      --pfile data/plink/1000G_subset \
+      --out results/1000G_subset \
+      OPTION-HERE
     ```
 
 - Look at the top lines of the output files from the terminal (using `head`), to see if you understand their structure. 
@@ -74,7 +78,10 @@ The option we were being asked to use is called `--missing`, which [the document
 We therefore run the command:
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --missing
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --missing
 ```
 
 This generates two files with extension `.smiss` (for sample-missingness report) and `.vmiss` (for variant-missingness report).
@@ -87,16 +94,16 @@ head results/1000G_subset.vmiss
 ```
 
 ```
-#CHROM  ID  MISSING_CT  OBS_CT  F_MISS
-1       .   0           904     0
-1       .   0           904     0
-1       .   0           904     0
-1       .   17          904     0.0188053
-1       .   0           904     0
-1       .   0           904     0
-1       .   0           904     0
-1       .   0           904     0
-1       .   0           904     0
+#CHROM  ID      MISSING_CT      OBS_CT  F_MISS
+1       rs1639560406    0       1037    0
+1       rs1463012642    21      1037    0.0202507
+1       rs1200541360    0       1037    0
+1       rs1472769893    0       1037    0
+1       rs1422057391    0       1037    0
+1       rs540466151     0       1037    0
+1       rs1167386110    0       1037    0
+1       rs1478422777    4       1037    0.00385728
+1       rs1365462007    7       1037    0.00675024
 ```
 
 :::
@@ -107,7 +114,7 @@ As [we did before](02-plink.md) for the allele frequency file, we can import thi
 
 ```{r vmiss-read}
 vmiss <- read_tsv("results/1000G_subset.vmiss") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 # inspect the table
 head(vmiss)
@@ -119,7 +126,7 @@ We can tabulate how many variants have missing genotypes:
 table(vmiss$missing_ct > 0)
 ```
 
-Around `r round(sum(vmiss$missing_ct > 0)/nrow(vmiss)*100)`% of variants have a missing genotype in at least one of the samples. 
+Around `r round(mean(vmiss$missing_ct > 0)*100)`% of variants have a missing genotype in at least one of the samples. 
 For those, we can plot the missing rate distribution:
 
 ```{r vmiss-hist}
@@ -131,13 +138,13 @@ vmiss |>
 
 We can see most of these SNVs have relatively low rates of missing data. 
 
-We can see how many variants would be discarded if we used the conventional 5% threshold: 
+We can see what fraction of variants would be discarded if we used the conventional 5% threshold: 
 
 ```{r vmiss-fraction}
 sum(vmiss$f_miss > 0.05)/nrow(vmiss)
 ```
 
-At this threshold we will discard a very small fraction of our variants. 
+At this threshold we will discard `r sum(vmiss$f_miss > 0.05)` variants, which we can see is a very small fraction of the variants we have. 
 We can therefore be satisfied that, in general, there are no major issues with our call rates.
 
 In our downstream analyses, we can exclude variants with >5% missing data by adding the option `--geno 0.05` to PLINK. 
@@ -151,7 +158,7 @@ We can read this file into R as usual:
 
 ```{r afreq-read}
 afreq <- read_tsv("results/1000G_subset.afreq") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 head(afreq)
 ```
@@ -195,14 +202,18 @@ To exclude variants with low minor allele frequency, for example at a 1% thresho
 Another quality control step is to check whether SNPs significantly deviate from Hardy-Weinberg equilibrium, which is expected if individuals mate randomly. 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --hardy
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --chr 1-22 \
+  --hardy
 ```
 
 This outputs a file with `.hardy` extension, which we can read into R: 
 
 ```{r hardy-read}
 hardy <- read_tsv("results/1000G_subset.hardy") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 head(hardy)
 ```
@@ -250,17 +261,68 @@ So far, we have run each of these options individually, however you can run mult
 For example, our previous analyses could have been run with a single command: 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --freq --hardy --missing
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --chr 1-22 \
+  --freq --hardy --missing
 ```
 
 This would produce all three respective results files in one go. 
 :::
 
-<!-- 
+
 ## LD prunning
 
-TODO
--->
+Before proceeding with our next quality checks, we will perform a **linkage disequilibrium (LD) pruning** step.
+This is a process that identifies variants that are in high linkage disequilibrium with each other, i.e. they are correlated and therefore provide redundant information.
+
+Having a set of uncorrelated variants (i.e. in linkage equilibrium) is useful for many downstream analyses, such as principal component analysis (PCA) and estimates of individual inbreeding, which we will cover in the next chapter.
+
+Identify variants in linkage equilibrium, we can use the `--indep-pairwise` option in PLINK. 
+This option requires at least two options:
+
+- **Window size**: how many neighbouring variants are considered at each step of the algorithm.
+- **R-squared threshold**: how correlated the variants need to be in order to be prunned.
+
+The algorithm then proceeds by sliding a window of the specified size across the genome, calculates the correlation for each pair of variants in that window, and prunes one of them if the correlation is above the specified threshold.
+
+For our analysis, we will use a window size of 100 variants and an r-squared threshold of 0.8:
+
+```bash
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --chr 1-22 --hwe 0.001 keep-fewhe --maf 0.01 \
+  --indep-pairwise 100 0.8
+```
+
+We have also restricted the analysis to chromosomes 1-22, as our main downstream analyses will only consider autosomes.
+And we exclude sites that have excess heterozygosity (i.e. those that deviate from Hardy-Weinberg equilibrium) and low minor allele frequency (MAF < 1%).
+
+The command above produces two files with the suffix `.prune.in` (variants that were kept by the algorithm, i.e. they should be largely uncorrelated) and `.prune.out` (the variants that were eliminated).
+
+These files simply have a single column with the variant IDs:
+
+```bash
+head results/1000G_subset.prune.in
+```
+
+```
+rs1463012642
+rs1200541360
+rs1472769893
+rs1422057391
+rs540466151
+rs1478422777
+rs1365462007
+rs1385614989
+rs1385058577
+rs533630043
+```
+
+Now, in downstream analyses where we only want to use uncorrelated SNPs (e.g., PCA, sample inbreeding, relatedness), we can use the `--extract` option to use only the variants in the `.prune.in` file.
+
 
 ## Summary
 
@@ -274,5 +336,8 @@ TODO
   - To remove variants with MAF below a certain threshold use `--maf X` (replace `X` with the desired frequency, e.g. 0.01).
 - Hardy-Weinberg equilibrium: variants for which genotype frequencies of homozygotes and heterozygous individuals deviate from expectation are removed as they may be due to genotyping errors, inbreeding, and other causes. 
   - Care should be taken with this statistic, as an excess of homozygotes is expected if there are different sub-populations within the sample being analysed (e.g. samples from different geographic regions). 
-  - Genotyping errors usually result in an excess of heterozygous, and these can be removed using `--hwe X keep-fewhe` (replace `X` with a p-value threshold, typically a low value such as 0.001). 
+  - Genotyping errors usually result in an excess of heterozygous, and these can be removed using `--hwe X keep-fewhe` (replace `X` with a p-value threshold, typically a low value such as 0.001).
+- Linkage disequilibrium (LD) pruning (`--indep-pairwise`): identifies variants that in high LD with each other, i.e. they are correlated and therefore provide redundant information. 
+  - Useful for downstream analyses, such as PCA, estimating individual inbreeding and relatedness between samples.
+  - To perform LD pruning use `--indep-pairwise X Y` (replace `X` with the window size, e.g. 100, and `Y` with the r-squared threshold, e.g. 0.8).
 :::

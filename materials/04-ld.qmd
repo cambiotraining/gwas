@@ -1,0 +1,68 @@
+---
+pagetitle: GWAS
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, purl=FALSE}
+knitr::opts_chunk$set(error=FALSE, message=FALSE, warning=FALSE)
+knitr::opts_knit$set(root.dir = "../course_files")
+set.seed(123)
+```
+
+# Linkage disequilibrium
+
+:::{.callout-tip}
+#### Learning objectives
+
+- Produce a set of uncorrelated variants using linkage disequilibrium pruning.
+:::
+
+## LD prunning
+
+Before proceeding with our next quality checks, we will perform a **linkage disequilibrium (LD) pruning** step.
+This is a process that identifies variants that are in high linkage disequilibrium with each other, i.e. they are correlated and therefore provide redundant information.
+
+Having a set of uncorrelated variants (i.e. in linkage equilibrium) is useful for many downstream analyses, such as principal component analysis (PCA) and estimates of individual inbreeding, which we will cover in the next chapter.
+
+Identify variants in linkage equilibrium, we can use the `--indep-pairwise` option in PLINK. 
+This option requires at least two options:
+
+- **Window size**: how many neighbouring variants are considered at each step of the algorithm.
+- **R-squared threshold**: how correlated the variants need to be in order to be prunned.
+
+The algorithm then proceeds by sliding a window of the specified size across the genome, calculates the correlation for each pair of variants in that window, and prunes one of them if the correlation is above the specified threshold.
+
+For our analysis, we will use a window size of 100 variants and an r-squared threshold of 0.8:
+
+```bash
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --chr 1-22 --hwe 0.001 keep-fewhe --maf 0.01 \
+  --indep-pairwise 100 0.8
+```
+
+We have also restricted the analysis to chromosomes 1-22, as our main downstream analyses will only consider autosomes.
+And we exclude sites that have excess heterozygosity (i.e. those that deviate from Hardy-Weinberg equilibrium) and low minor allele frequency (MAF < 1%).
+
+The command above produces two files with the suffix `.prune.in` (variants that were kept by the algorithm, i.e. they should be largely uncorrelated) and `.prune.out` (the variants that were eliminated).
+
+These files simply have a single column with the variant IDs:
+
+```bash
+head results/1000G_subset.prune.in
+```
+
+```
+rs1463012642
+rs1200541360
+rs1472769893
+rs1422057391
+rs540466151
+rs1478422777
+rs1365462007
+rs1385614989
+rs1385058577
+rs533630043
+```
+
+Now, in downstream analyses where we only want to use uncorrelated SNPs (e.g., PCA, sample inbreeding, relatedness), we can use the `--extract` option to use only the variants in the `.prune.in` file.

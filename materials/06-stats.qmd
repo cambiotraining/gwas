@@ -162,41 +162,53 @@ These are still substantial effects, but not as large as what we used in the exa
 :::
 
 
-:::{.callout-note}
-#### Odds, log-odds and probabilities
+:::{.callout-note collapse="true"}
+#### Odds ratios, odds, log-odds and probabilities (click to learn more)
 
 Logistic regression models can be challenging to interpret and working with odds is sometimes confusing. 
 Remember, the odds is a ratio of two probabilities: the probability of an event happening versus it not happening. 
 
 Because of the underlying maths, logistic regression coefficients are usually given as log-odds. 
-This is exactly how it sounds like, it's the natural log of the odds ratio. 
-This is also known as the logit function.
+This is exactly how it sounds like, it's the natural log of the odds ratio, also known as the logit function.
+This transformation is useful as it converts odds, which range from 0 to infinity, to a range of $(-\infty, +\infty)$, which is easier to work with for the underlying statistical machinery.
 
 I can be useful to convert probabilities to odds (or log-odds) and back. 
-Say an event has a 75% chance of happening. We can calculate odds and log-odds easily: 
+Say an event has a 75% chance of happening, meaning the odds are 3:1. 
+We can calculate the odds and log-odds like so: 
 
 ```{r prob-to-odds}
 # if you know your probability
-p <- 0.75
+probability <- 0.75
 
 # calculate odds as:
-0.75 / (1 - 0.75)
+odds <- probability / (1 - probability)
+odds
 
 # and log-odds taking the natural log of the previous
-log(0.75 / (1 - 0.75))
+log_odds <- log(odds)
+log_odds
 ```
 
-On the other hand, if you start from having the odds ratio, for example OR = 3, then you need to: 
-first convert it to log-odds (or "logit"); then use the inverse-logit function to calculate the probability.
+On the other hand, if you start from having the odds, for example odds = 3, then you need to: 
+first convert it to log-odds (aka "logit"); then use the inverse-logit function to calculate the probability.
 Here's the R code: 
 
 ```{r odds-to-prob}
 # if you know your odds
 odds <- 3
 
-# calculate the probability of the event using the inverse-logit
-plogis(log(odds))
+# Inverse-logit: convert log-odds back to probability
+probability <- plogis(log(odds))
+probability
 ```
+
+Finally, if you have an odds ratio, you need to remember that this is the ratio of the odds of two groups, which is not the same as the ratio of their probabilities.
+
+For example, if the baseline probability is 0.1, then the odds are 0.1/(1-0.1) = 0.1111.
+If the odds ratio is 3, then the odds of the second group are 3 times larger than the first group, i.e. 0.3333.
+If we convert this back to a probability (using the inverse-logit function shown above), we would get 0.25, which is not 3 times larger than the baseline probability of 0.1.
+
+As we said, it can be confusing to work with odds, but it's worth spending some time to let these ideas sink in if you work with binary data often.
 
 :::
 

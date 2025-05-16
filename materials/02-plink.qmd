@@ -83,20 +83,32 @@ In addition to genotype data, we will use simulated traits, based on real GWAS r
 PLINK has many functions available, but we will start with a simple one that calculates allele frequencies for each of our variants: 
 
 ```bash
-plink2 --pfile data/plink/1000G_subset --out results/1000G_subset --freq
+plink2 \
+  --pfile data/plink/1000G_subset \
+  --out results/1000G_subset \
+  --chr 1-22 \
+  --freq
 ```
 
 You can see the structure of the command is: 
 
 - `plink`: the name of the program.
 - `--pfile`: input file name **prefix**. PLINK will then look for files with `.pgen`, `.psam` and `.pvar` extensions that all share the prefix specified here. 
+- `--out`: output file name **prefix**. PLINK will generate all the output files with this common prefix and a file extension specific to each command. In this example we only get an allele frequency file. You can omit this option, in which case PLINK will output the files to the same directory as specified with `--pfile`. However, it's good practice to keep our results files separate from the original raw data.
+- `--chr`: restrict the analysis to certain chromosomes only. In this case, we exclude sex chromosomes and only analyse autosomes. For many analyses we often exclude sex chromosomes, but we will see later how those can be useful for assessing sex assignment. 
 - `--freq`: option to calculate allele frequencies, detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats#freq).
-- `--out`: output file name **prefix**. PLINK will generate all the output files with this common prefix and a file extension specific to each command. In this example we only get an allele frequency file (detailed below). You can omit this option, in which case PLINK will output the files to the same directory as specified with `--pfile`. However, it's good practice to keep our results files separate from the original raw data.
 
 Most PLINK analysis options output their results to a file with an extension that is specific to that option.
 In the example of the `--freq` option, it outputs a file with `.afreq` extension. 
 This is detailed in [the documentation](https://www.cog-genomics.org/plink/2.0/basic_stats) of each option.
 
+:::{.callout-note collapse="true"}
+#### What's the `\` in the command?
+
+The `\` character at the end of the first line splits long commands into multiple lines in the terminal.
+This is useful for readability, especially when you have many options to specify as is the case here.
+Please note that you should not have a space after the `\` character, otherwise the command will not work.
+:::
 
 ## Analysing PLINK files in R
 
@@ -120,7 +132,8 @@ We now read the `.afreq` file produced by the PLINK command we ran earlier:
 afreq <- read_tsv("results/1000G_subset.afreq") |> 
   # PLINK's column names are always upppercase
   # this makes them lowercase, easier to type
-  clean_names()
+  # we also remove the '#' character from the first column name
+  clean_names(replace = c("#" = ""))
 
 # inspect the file
 head(afreq)

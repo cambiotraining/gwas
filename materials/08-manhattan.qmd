@@ -48,7 +48,7 @@ Here is how to read it into R, if you haven't done so already:
 ```{r blood-read}
 # read the association test results including PCA covariates
 blood_covar <- read_tsv("results/1000G_subset_pca.blood.glm.linear") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
 
 # retain only the SNP test
 blood_covar <- blood_covar |> 
@@ -96,7 +96,7 @@ blood_covar |>
   ggplot(aes(pos, -log10(p))) +
   geom_point() +
   geom_hline(yintercept = -log10(5e-8), linetype = "dashed") +
-  facet_grid(~ number_chrom, 
+  facet_grid(~ chrom, 
              scale = "free_x", 
              space = "free_x",
              switch = "x") +
@@ -126,7 +126,7 @@ First, let's identify our top-most associated SNV:
 ```{r top-snv}
 blood_covar |>
   arrange(p) |>
-  select(number_chrom, pos, id, beta, p)
+  select(chrom, pos, id, beta, p)
 ```
 
 We can see at the top we have two SNPs with the same estimated β coefficient and p-value. 
@@ -153,7 +153,7 @@ As usual, this is a tab-delimited file, which we can read into R:
 
 ```{r read-cor}
 rs1158715 <- read_tsv("results/1000G_subset_rs1158715.vcor") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
   
 head(rs1158715)
 ```
@@ -191,7 +191,7 @@ We do this by:
 ```{r regional-plot}
 blood_covar |> 
   # retain variants within 250kb each side of our target
-  filter(number_chrom == 5 & pos > 32788263 - 250e3 & pos < 32788263 + 250e3) |> 
+  filter(chrom == 5 & pos > 32788263 - 250e3 & pos < 32788263 + 250e3) |> 
   # join with our LD table
   left_join(rs1158715, by = c("id" = "id_b")) |> 
   # for SNVs with no correlation value (below 0.05)

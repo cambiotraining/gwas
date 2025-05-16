@@ -54,17 +54,18 @@ In the following command we use this option, along with several filters based on
 
 ```bash
 plink2 --pfile data/plink/1000G_subset --out results/1000G_subset \
-  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
-  --mind 0.05 --king-cutoff 0.125 \
+  --extract results/1000G_subset.prune.in \
+  --geno 0.05 --mind 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \
+  --king-cutoff 0.125 \
   --pca
 ```
 
 To recap, our filters are: 
 
 - `--geno 0.05` removes variants with > 5% missing data. 
+- `--mind 0.05` removes samples with > 5% missing data.
 - `--maf 0.01` removes  variants with < 1% minor allele frequency.
-- `--hwe 0.001` removes variants with p-value < 0.001 for the HWE test, but only those with high heterozygosity (as low heterozygosity variants may be due to population structure). 
-- `--mind 0.05` removes samples with > 5% missing data. 
+- `--hwe 0.001 keep-fewhet` removes variants with p-value < 0.001 for the HWE test, but only those with high heterozygosity (as low heterozygosity variants may be due to population structure). 
 - `--king-cutoff 0.125` removes individuals with kinship coefficient greater than 1/8 (second-degree relatives).
 
 The PCA option outputs two files: 
@@ -136,7 +137,7 @@ This is stored in the `.eigenvec` file, which we can read into R as usual:
 
 ```{r eigenvec-read}
 eigenvec <- read_tsv("results/1000G_subset.eigenvec") |> 
-  clean_names()
+  clean_names(replace = c("#" = ""))
 
 head(eigenvec)
 ```
