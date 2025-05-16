@@ -1,61 +1,74 @@
+# Aided by OpenAI's ChatGPT and Microsoft's Copilot
 import argparse
-import gzip
+import pysam
 import random
 import numpy as np
+from tqdm import tqdm
+import subprocess
+import shutil
+
+def get_vcf_record_count(vcf_file):
+    """Try to get the number of records using bcftools index --nrecords."""
+    if shutil.which("bcftools") is None:
+        return None
+    try:
+        result = subprocess.run(
+            ["bcftools", "index", "--nrecords", vcf_file],
+            capture_output=True, text=True, check=True
+        )
+        return int(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return None
 
 def process_vcf(input_vcf, output_vcf, seed=42):
-    """Processes a VCF file in a memory-efficient way, introducing missing genotypes."""
+    """Processes a VCF file using pysam, introducing missing genotypes with optional progress tracking.
+    Outputs a bgzipped VCF and generates a CSI index."""
+    
+    assert output_vcf.endswith(".vcf.gz"), "Output file must end with .vcf.gz for bgzip compression"
+
     random.seed(seed)
     np.random.seed(seed)
 
-    open_func = gzip.open if input_vcf.endswith(".gz") else open
-    out_func = gzip.open if output_vcf.endswith(".gz") else open
+    vcf_in = pysam.VariantFile(input_vcf, 'r')
+    vcf_out = pysam.VariantFile(output_vcf, 'wz', header=vcf_in.header)
 
-    with open_func(input_vcf, 'rt') as vcf_in, out_func(output_vcf, 'wt') as vcf_out:
-        num_samples = None
-        sample_indices = None
-        missing_sample_indices = set()
+    samples = list(vcf_in.header.samples)
+    num_samples = len(samples)
+    sample_indices = list(range(num_samples))
+    num_missing_samples = int(0.2 * num_samples)
+    missing_sample_indices = set(random.sample(sample_indices, num_missing_samples))
+    missing_sample_prob = np.random.beta(1, 3, size=num_samples)
 
-        for line in vcf_in:
-            if line.startswith("#"):
-                # Write header directly
-                vcf_out.write(line)
-                if line.startswith("#CHROM"):
-                    # Extract number of samples from last header line
-                    num_samples = len(line.strip().split("\t")) - 9
-                    sample_indices = list(range(num_samples))
-                    # Select ~20% of samples for missing data
-                    num_missing_samples = int(0.2 * num_samples)
-                    missing_sample_indices = set(random.sample(sample_indices, num_missing_samples))
-                    missing_sample_prob = np.random.beta(1, 3, size = num_samples)
-            else:
-                fields = line.strip().split("\t")
-                genotypes = fields[9:]
+    total_variants = get_vcf_record_count(input_vcf)
 
-                # Decide if this SNP should have missing data (~30% of SNPs)
-                if random.random() < 0.3:
-                    # missing_snp_prob = np.random.beta(0.5, 3)
-                    missing_snp_prob = np.clip(np.random.beta(0.5, 3) * np.random.uniform(0.8, 1.5), 0, 1)
+    variant_iter = tqdm(vcf_in.fetch(), total=total_variants, 
+                        desc="Processing", unit=" variants", unit_scale=True)
 
-                    # Modify genotypes for selected samples
-                    for j in missing_sample_indices:
-                        if random.random() < (missing_snp_prob * missing_sample_prob[j]):
-                            genotypes[j] = "./."  # Introduce missing genotype
+    for record in variant_iter:
+        if random.random() < 0.3:
+            missing_snp_prob = np.clip(np.random.beta(0.5, 3) * np.random.uniform(0.8, 1.5), 0, 1)
+            for j in missing_sample_indices:
+                if random.random() < (missing_snp_prob * missing_sample_prob[j]):
+                    record.samples[samples[j]]['GT'] = (None, None)
+        vcf_out.write(record)
 
-                # Write modified line
-                vcf_out.write("\t".join(fields[:9] + genotypes) + "\n")
+    vcf_in.close()
+    vcf_out.close()
+
+    print("Indexing the output VCF file...")
+    pysam.tabix_index(output_vcf, preset="vcf", force=True, csi=True)
 
     print(f"Modified VCF written to {output_vcf}")
+    print(f"CSI index written to {output_vcf}.csi")
 
 def main():
     """Parses command-line arguments and runs the VCF processing function."""
     parser = argparse.ArgumentParser(description="Introduce random missing genotypes in a VCF file.")
-    parser.add_argument("-i", "--input", required=True, help="Input VCF file (can be .vcf or .vcf.gz)")
-    parser.add_argument("-o", "--output", required=True, help="Output VCF file (can be .vcf or .vcf.gz)")
+    parser.add_argument("-i", "--input", required=True, help="Input VCF file (.vcf or .vcf.gz)")
+    parser.add_argument("-o", "--output", required=True, help="Output VCF file (.vcf.gz required)")
     parser.add_argument("-s", "--seed", type=int, default=42, help="Random seed (default: 42)")
 
     args = parser.parse_args()
-    
     process_vcf(args.input, args.output, args.seed)
 
 if __name__ == "__main__":
