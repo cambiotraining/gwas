@@ -10,3 +10,89 @@ set.seed(123)
 
 # Final data cleaning
 
+```{mermaid}
+graph TD
+
+  A["Start: Raw Genotype Data"] --> B["Initial QC"]
+  B --> B1["Sample call rate"]
+  B --> B2["Variant call rate"]
+  B --> B3["Minor allele frequency"]
+  B --> B4["Sex assignment"]
+  B --> B5["Relatedness"]
+
+  B1 --> C["Linkage Disequilibrium"]
+  B2 --> C["Linkage Disequilibrium"]
+  B3 --> C["Linkage Disequilibrium\n(LD prunning)"]
+
+  C --> D["Population Structure Analysis"]
+  D --> D1["PCA"]
+  D --> D2["Admixture"]
+  D1 --> D3["Sample clustering"]
+  D2 --> D3["Sample clustering"]
+
+  D3 --> E["Population-aware QC"]
+  E --> E1["Hardy-Weinberg Equilibrium"]
+  E --> E2["Inbreeding coefficient"]
+  E --> E3["Population outlier detection"]
+
+  E1 --> F["Final Data Cleaning"]
+  E2 --> F["Final Data Cleaning"]
+  E3 --> F["Final Data Cleaning"]
+  F --> F1["Define high-quality variants"]
+  F --> F2["Define high-quality samples"]
+  F1 --> G["Export PLINK files or keep-lists"]
+  F2 --> G["Export PLINK files or keep-lists"]
+
+  G --> H["Cleaned Dataset Ready for GWAS"]
+```
+
+```{mermaid}
+%%{init: {'theme':'base'}}%%
+graph TD
+
+  A[/"Raw Genotype Data"/] --> B
+  
+  subgraph B["Initial QC"]
+    B1["Sample call rate"]
+    B2["Variant call rate"]
+    B3["Minor allele frequency"]
+    B4["Sex assignment"]
+    B5["Relatedness"]
+  end
+
+  B --> C
+  
+  subgraph C["Linkage Disequilibrium"]
+    C1["LD decay"]
+    C2["LD pruning"]
+  end
+
+  C --> D
+  
+  subgraph D["Population Structure Analysis"]
+    D1["PCA"]
+    D2["Admixture"]
+    D1 --> D3["Sample clustering"]
+    D2 --> D3["Sample clustering"]
+  end
+  
+  D --> E
+  
+  subgraph E["Population-aware QC"]
+    E1["Hardy-Weinberg Equilibrium"]
+    E2["Inbreeding coefficient"]
+    E3["Population outlier detection"]
+  end
+
+  E --> F
+  
+  subgraph F["Final Data Cleaning"]
+    F1["Define high-quality variants"]
+    F2["Define high-quality samples"]
+    F1 --> F3["Export PLINK files or keep-lists"]
+    F2 --> F3["Export PLINK files or keep-lists"]
+  end
+
+  F --> H[/"Files Ready for GWAS"/]
+```
+
