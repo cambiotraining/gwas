@@ -1,0 +1,590 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Genome-Wide Association Studies (GWAS)",
+    "section": "",
+    "text": "Overview\nGenome-Wide Association Studies (GWAS) investigate the genetic basis of complex traits and/or diseases. These materials cover the bioinformatic and statistical methods required to identify associations between genetic variants and traits. You will learn to use essential software for genotype data processing, including quality control crucial for downstream analysis. We discuss how population ancestry may impact association results and how this can be adjusted for in the analysis. We introduce key statistical concepts relevant to GWAS, with applications to both quantitative and binary traits. Finally, we introduce methods to assess potential biases in GWAS results and demonstrate how to generate effective visualisations.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Overview</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#overview",
+    "href": "index.html#overview",
+    "title": "Genome-Wide Association Studies (GWAS)",
+    "section": "",
+    "text": "TipLearning Objectives\n\n\n\n\nDescribe key concepts, advantages and limitations of GWAS.\nUse PLINK to generate key metrics for quality control of samples and variants.\nRecognise the effect of population structure when performing association tests and how to adjust for it.\nSummarise the statistical methods used for association analysis and how to interpret their outcomes.\nRun a GWAS for quantitative and binary traits and assess the quality of the results.\nVisualise and report the findings of the association analysis.\n\n\n\n\nTarget Audience\nResearchers and students interested in the genetics of complex traits.\n\n\nPrerequisites\n\nKnowledge of key genetics concepts and terms, such as: gene, locus, allele, linkage, inheritance, homozygous and heterozygous genotypes.\n\nSee NIH’s genetics glossary for reference.\n\nKnowledge of basic statistical concepts, such as: linear regression, null hypothesis testing, p-value, effect size. Knowledge of logistic regression is also desirable.\n\nSee our Core Statistics and Generalised Linear Models materials as a reference.\n\nBasic usage of the Unix command line: listing files (ls), moving between directories (cd) and an understanding of using options/flags with commands (e.g. command --input file.csv --output result.csv).\n\nSee the “Basics” section of our Introduction to Unix command line materials.\n\nUsing R and the tidyverse package for data exploration and visualisation.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Overview</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#citation-authors",
+    "href": "index.html#citation-authors",
+    "title": "Genome-Wide Association Studies (GWAS)",
+    "section": "Citation & Authors",
+    "text": "Citation & Authors\nPlease cite these materials if:\n\nYou adapted or used any of them in your own teaching.\nThese materials were useful for your research work. For example, you can cite us in the methods section of your paper: “We carried our analyses based on the recommendations in YourReferenceHere”.\n\n\nYou can cite these materials as:\n\nTavares, H., Laskar, R. (2025). Genome-Wide Association Studies (GWAS). https://cambiotraining.github.io/gwas\n\nOr in BibTeX format:\n@misc{YourReferenceHere,\n  author = {Tavares, Hugo and Laskar, Ruhina},\n  month = {3},\n  title = {Genome-Wide Association Studies (GWAS)},\n  url = {https://cambiotraining.github.io/gwas},\n  year = {2025}\n}\nAbout the authors:\nHugo Tavares  \nAffiliation: Cambridge Centre for Research Informatics Training Roles: conceptualisation; primary author; data curation; coding; software\n\nRuhina Laskar  \nAffiliation: Department of Oncology, University of Cambridge Roles: conceptualisation; primary author; data curation; coding; software",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Overview</span>"
+    ]
+  },
+  {
+    "objectID": "index.html#acknowledgements",
+    "href": "index.html#acknowledgements",
+    "title": "Genome-Wide Association Studies (GWAS)",
+    "section": "Acknowledgements",
+    "text": "Acknowledgements\n\n\nList any other sources of materials that were used.\nOr other people that may have advised during the material development (but are not authors).",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>1</span>  <span class='chapter-title'>Overview</span>"
+    ]
+  },
+  {
+    "objectID": "setup.html",
+    "href": "setup.html",
+    "title": "Data & Setup",
+    "section": "",
+    "text": "Data\nThe data used in these materials is provided as a zip file. Download and unzip the folder to your Desktop to follow along with the materials.\nDownload",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Data & Setup</span>"
+    ]
+  },
+  {
+    "objectID": "setup.html#software",
+    "href": "setup.html#software",
+    "title": "Data & Setup",
+    "section": "Software",
+    "text": "Software\nWe use the Mamba package manager to install the necessary software.\nSee our separate software installation instructions page for how to install Mamba. Windows users are recommended to install WSL and follow the instructions for Linux.\nThen, create a Mamba environment with the required packages:\nmamba create -n gwas plink2 gcta gemma bcftools gsl",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Welcome",
+      "<span class='chapter-number'>2</span>  <span class='chapter-title'>Data & Setup</span>"
+    ]
+  },
+  {
+    "objectID": "materials/01-overview.html",
+    "href": "materials/01-overview.html",
+    "title": "3  GWAS overview",
+    "section": "",
+    "text": "Caution\n\n\n\nThese materials are still under development\n\nGenome-wide Association Studies aim to identify the genetic underpinning of complex traits. A complex trait is one that is affected not by a single genetic cause (i.e. a mendelian trait), but rather by several genetic variants. Height in humans is the canonical example of a complex trait: current studies estimate upwards of 10k variants associated with this trait (Yengo et al. 2022).\nGWAS achieves this by identifying statistical associations between a genetic variant and a trait of interest. Such associations, while not necessarily causal, indicate the region(s) of the genome where putative causal genetic variation exists to explains the trait. GWAS therefore has many applications, from understanding disease, the evolution of quantitative traits, improvements in crop breeding, amongst many others.\nThese materials cover the practical implementation of running a GWAS analysis on a set of traits using the software PLINK. The following topics are covered:\n\nThe basics of how to use the PLINK software.\nPerforming quality control of the genetic data, both at the variant and sample levels.\nIdentifying sources of confounding, in particular discussing the issue of population structure.\nThe basic statistical concepts behind GWAS and how to interpret their results.\nHow to run an association analysis using PLINK, including adjusting for population structure confounders.\nVisualising the results to produce Manhattan plots and regional association plots.\n\nThese materials use human data as an example to run the analyses, but the principles apply to other organisms.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>GWAS overview</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html",
+    "href": "materials/02-plink.html",
+    "title": "4  PLINK basics",
+    "section": "",
+    "text": "4.1 The PLINK software\nThe PLINK software provides an extensive toolkit for genome wide association analysis. Amongst its many functions, it includes:\nPLINK has been designed to work with large data, being highly efficient and take advantage of multiple processors (CPUs) to run tasks in parallel.\nIt has excellent documentation, which goes into great details about its functions and both input and output file formats.\nPLINK version 2 is still under active development and many of its functions have been updated from PLINK version 1 to deal with ever increasing amounts of data. While most of the functions have been ported from PLINK 1 to PLINK 2, some functionality may still be missing from the more recent version. We will use PLINK 2 throughout these materials, but it is worth being aware that some functions may only be available on the older version.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html#the-plink-software",
+    "href": "materials/02-plink.html#the-plink-software",
+    "title": "4  PLINK basics",
+    "section": "",
+    "text": "Calculation of basic statistics such as genotype counts, allele frequencies, missing data, measures of inbreeding, checking sex assignment.\nMeasures of linkage disequilibrium between variants and genetic relatedness between samples.\nAssessment of population stratification using principal components analysis.\nPerform association tests using generalised linear models between genotypes and quantitative or binary traits.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html#plink-input-files",
+    "href": "materials/02-plink.html#plink-input-files",
+    "title": "4  PLINK basics",
+    "section": "4.2 PLINK input files",
+    "text": "4.2 PLINK input files\nPLINK requires three types of input files: genotypes, variant information and sample information. With version 2 of PLINK new file formats for these files were implemented, however PLINK 2 supports both the new and older file format versions.\n\n\n\n\n\n\n\n\nDescription\nPLINK 1 Format\nPLINK 2 Format\n\n\n\n\nGenotypes stored in a binary (compressed) file format.\n.bed\n.pgen\n\n\nVariant information file containing chromosome, position, reference, and alternative alleles for each variant.\n.bim\n.pvar\n\n\nSample information file specifying sample IDs, parents (if known), and sex (if known). Family IDs are used for related individuals, while they can be set to missing for unrelated individuals.\n.fam\n.psam\n\n\n\n\n\n\n\n\n\nWarningDon’t get your BED files confused\n\n\n\nThe .bed format used by PLINK 1 is distinct from the BED (Browser Extensible Data) format often used in bioinformatics to represent the coordinates of genomic features (e.g. genes).\nThese are completely different files, which unfortunately ended up being referred to by the same file extension. That is one reason why the newer PLINK 2 now uses the more distinct .pgen extension for its genotype file.\n\n\n\n4.2.1 Example data\nIn these materials we use genotype data from the 1000 Genomes project, specifically the 30x data described in Byrska-Bishop et al. (2022). We have down-sampled the SNVs, to retain ~6M out of the ~70M available.\nVariants calls are often stored as VCF (Variant Call Format) files (cf. the data on the 1000G server). PLINK allows us to convert VCF files into its required input formats using the --make-pgen (PLINK 2 format) or --make-bed (PLINK 1 format) options.\nWe already provide a set of .pgen/.bed, .pvar/.bim and .psam/.fam files based on the publicly-available data.\nIn addition to genotype data, we will use simulated traits, based on real GWAS results on quantitate and binary traits:\n\nBinary trait: type 2 diabetes , study accession GCST006801.\nBinary trait: chronotype (“morning person”), study accession GCST007565.\nQuantitative (continuous) trait: caffeine consumption (“mg/day”), study accession GCST001032.\nQuantitative (continuous) trait: blood pressure (mm Hg) study accession GCST001235",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html#working-with-plink",
+    "href": "materials/02-plink.html#working-with-plink",
+    "title": "4  PLINK basics",
+    "section": "4.3 Working with plink",
+    "text": "4.3 Working with plink\nPLINK has many functions available, but we will start with a simple one that calculates allele frequencies for each of our variants:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --chr 1-22 \\\n  --freq\nYou can see the structure of the command is:\n\nplink: the name of the program.\n--pfile: input file name prefix. PLINK will then look for files with .pgen, .psam and .pvar extensions that all share the prefix specified here.\n--out: output file name prefix. PLINK will generate all the output files with this common prefix and a file extension specific to each command. In this example we only get an allele frequency file. You can omit this option, in which case PLINK will output the files to the same directory as specified with --pfile. However, it’s good practice to keep our results files separate from the original raw data.\n--chr: restrict the analysis to certain chromosomes only. In this case, we exclude sex chromosomes and only analyse autosomes. For many analyses we often exclude sex chromosomes, but we will see later how those can be useful for assessing sex assignment.\n--freq: option to calculate allele frequencies, detailed in the documentation.\n\nMost PLINK analysis options output their results to a file with an extension that is specific to that option. In the example of the --freq option, it outputs a file with .afreq extension. This is detailed in the documentation of each option.\n\n\n\n\n\n\nNoteWhat’s the \\ in the command?\n\n\n\n\n\nThe \\ character at the end of the first line splits long commands into multiple lines in the terminal. This is useful for readability, especially when you have many options to specify as is the case here. Please note that you should not have a space after the \\ character, otherwise the command will not work.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html#analysing-plink-files-in-r",
+    "href": "materials/02-plink.html#analysing-plink-files-in-r",
+    "title": "4  PLINK basics",
+    "section": "4.4 Analysing PLINK files in R",
+    "text": "4.4 Analysing PLINK files in R\nPLINK’s output files are standard text files, usually consisting of tables with tab-separated values (TSV). Therefore, they can be read and analysed in R (or Python, if you prefer).\nLet’s start our analysis in R by loading some packages:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme\n\nWe now read the .afreq file produced by the PLINK command we ran earlier:\n\n# read the allele frequency file\nafreq &lt;- read_tsv(\"results/1000G_subset.afreq\") |&gt; \n  # PLINK's column names are always upppercase\n  # this makes them lowercase, easier to type\n  # we also remove the '#' character from the first column name\n  clean_names(replace = c(\"#\" = \"\"))\n\n# inspect the file\nhead(afreq)\n\n# A tibble: 6 × 6\n  chrom id           ref   alt   alt_freqs obs_ct\n  &lt;dbl&gt; &lt;chr&gt;        &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt;  &lt;dbl&gt;\n1     1 rs1639560406 A     C      0          2074\n2     1 rs1463012642 C     T      0.00344    2032\n3     1 rs1200541360 T     C      0.00193    2074\n4     1 rs1472769893 G     C      0.000964   2074\n5     1 rs1422057391 C     T      0.000964   2074\n6     1 rs540466151  T     G      0.000482   2074\n\n\nWe used the read_tsv() function, which imports tab-separated files as a data frame, followed by the clean_names() function (from the janitor package) to conveniently convert the column names to lowercase (it also removes spaces and other special characters, if present).\nWe can now use this data frame to produce a histogram of the allele frequencies in our population, using standard ggplot2 functions:\n\n# plot a histogram of alternative allele frequencies\nafreq |&gt; \n  ggplot(aes(alt_freqs)) +\n  geom_histogram(binwidth = 0.01)\n\n\n\n\n\n\n\n\nWe can see many variants with a frequency close to zero for the alternative allele, indicating a high fraction of variants may be very rare or even not vary in this collection of samples. We will likely need to do some filtering before proceeding with our analysis, which is the topic of the next chapters.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/02-plink.html#summary",
+    "href": "materials/02-plink.html#summary",
+    "title": "4  PLINK basics",
+    "section": "4.5 Summary",
+    "text": "4.5 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nPLINK is a widely-used software for GWAS, as it includes a wide range of functions, from quality control to downstream analysis.\nPLINK requires three critical types of input:\n\nGenotype data (.pgen/.bed).\nInformation about genetic variants (.pvar/.bim).\nInformation about the samples (.psam/.fam).\n\nA typical PLINK command will include:\n\nOption specifying the input files’ prefix: --pfile (or --bfile if using the older formats).\nOption specifying the output files’ prefix: --out.\nOther options specifying the task we want it to\n\nPLINK generates output files with specific extensions for each option it provides. All file extensions are detailed in the documentation.\nMost of PLINK’s output files are simple text files with tab-separated values (TSV), which can therefore be imported to standard data analysis software such as R.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Introduction",
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>PLINK basics</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html",
+    "href": "materials/03-qc_variants.html",
+    "title": "5  Variant QC",
+    "section": "",
+    "text": "5.1 Per-variant metrics\nBefore proceeding with downstream analyses, it’s good practice to investigate quality issues in our variants. We will consider the following metrics for each variant:\nWe will cover each of these below.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#per-variant-metrics",
+    "href": "materials/03-qc_variants.html#per-variant-metrics",
+    "title": "5  Variant QC",
+    "section": "",
+    "text": "Call rate: Fraction of missing genotypes. Variants with a high fraction of missing data may indicate overall low quality and thus be removed from downstream analysis.\nAllele frequency: The frequency of the allele in the population of samples. Variants with low frequency (rare alleles) are usually excluded from downstream analysis as they incur low statistical power for association tests.\nHardy-Weinberg deviations: In randomly mating populations, there is a theoretical expectation of how many homozygous and heterozygous individuals there should be given the frequency of the two alleles. Deviations from this expectation may be due to genotyping errors.\n\n\n\n\n\n\n\n\nImportantSet up your R session\n\n\n\nIf you haven’t done so already, start an R session with the following packages loaded:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#call-rates",
+    "href": "materials/03-qc_variants.html#call-rates",
+    "title": "5  Variant QC",
+    "section": "5.2 Call rates",
+    "text": "5.2 Call rates\nOne way to assess the genotype quality of each variant is to calculate how many missing genotypes each sample has. This can then be used to assess the need to exclude variants from our downstream analysis. There are no set rules as to what constitutes a “good call rate”, but typically we may exclude variants with more than ~5% of missing genotypes. This threshold may vary, however, depending on the nature of data you have.\n\n\n\n\n\n\nExerciseExercise 1 - Missing genotype data\n\n\n\n\n\n\n\nLook at PLINK’s documentation to find the option that calculates missing data reports.\nRun PLINK with that option, recalling the basic command structure:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  OPTION-HERE\nLook at the top lines of the output files from the terminal (using head), to see if you understand their structure. You can also consult PLINK’s file format documentation.\n\n\n\n\n\n\n\nAnswerAnswer\n\n\n\n\n\n\nThe option we were being asked to use is called --missing, which the documentation says: “produces sample-based and variant-based missing data reports”.\nWe therefore run the command:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --missing\nThis generates two files with extension .smiss (for sample-missingness report) and .vmiss (for variant-missingness report). The file format documentation details the columns present in each of these files.\nWe can quickly look at the top rows of each file using the standard head command from our terminal:\nhead results/1000G_subset.vmiss\n#CHROM  ID      MISSING_CT      OBS_CT  F_MISS\n1       rs1639560406    0       1037    0\n1       rs1463012642    21      1037    0.0202507\n1       rs1200541360    0       1037    0\n1       rs1472769893    0       1037    0\n1       rs1422057391    0       1037    0\n1       rs540466151     0       1037    0\n1       rs1167386110    0       1037    0\n1       rs1478422777    4       1037    0.00385728\n1       rs1365462007    7       1037    0.00675024\n\n\n\n\n\n\n\n\nIn the previous exercise, you should have produced a file containing the counts and frequency of missing genotypes for each variant. As we did before for the allele frequency file, we can import this table into R:\n\nvmiss &lt;- read_tsv(\"results/1000G_subset.vmiss\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \n# inspect the table\nhead(vmiss)\n\n# A tibble: 6 × 5\n  chrom id           missing_ct obs_ct f_miss\n  &lt;chr&gt; &lt;chr&gt;             &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;\n1 1     rs1639560406          0   1037 0     \n2 1     rs1463012642         21   1037 0.0203\n3 1     rs1200541360          0   1037 0     \n4 1     rs1472769893          0   1037 0     \n5 1     rs1422057391          0   1037 0     \n6 1     rs540466151           0   1037 0     \n\n\nWe can tabulate how many variants have missing genotypes:\n\ntable(vmiss$missing_ct &gt; 0)\n\n\n  FALSE    TRUE \n3409393 1065311 \n\n\nAround 24% of variants have a missing genotype in at least one of the samples. For those, we can plot the missing rate distribution:\n\nvmiss |&gt; \n  filter(f_miss &gt; 0) |&gt; \n  ggplot(aes(f_miss)) +\n  geom_histogram()\n\n\n\n\n\n\n\n\nWe can see most of these SNVs have relatively low rates of missing data.\nWe can see what fraction of variants would be discarded if we used the conventional 5% threshold:\n\nsum(vmiss$f_miss &gt; 0.05)/nrow(vmiss)\n\n[1] 0.001427357\n\n\nAt this threshold we will discard 6387 variants, which we can see is a very small fraction of the variants we have. We can therefore be satisfied that, in general, there are no major issues with our call rates.\nIn our downstream analyses, we can exclude variants with &gt;5% missing data by adding the option --geno 0.05 to PLINK.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#allele-frequency",
+    "href": "materials/03-qc_variants.html#allele-frequency",
+    "title": "5  Variant QC",
+    "section": "5.3 Allele frequency",
+    "text": "5.3 Allele frequency\nIn the previous chapter we already saw how to calculate the allele frequency of our variants using the --freq option.\nWe can read this file into R as usual:\n\nafreq &lt;- read_tsv(\"results/1000G_subset.afreq\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \nhead(afreq)\n\n# A tibble: 6 × 6\n  chrom id           ref   alt   alt_freqs obs_ct\n  &lt;dbl&gt; &lt;chr&gt;        &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt;  &lt;dbl&gt;\n1     1 rs1639560406 A     C      0          2074\n2     1 rs1463012642 C     T      0.00344    2032\n3     1 rs1200541360 T     C      0.00193    2074\n4     1 rs1472769893 G     C      0.000964   2074\n5     1 rs1422057391 C     T      0.000964   2074\n6     1 rs540466151  T     G      0.000482   2074\n\n\nBy default PLINK calculates the allele frequency of the alternative allele. However, this is somewhat arbitrary, as the alternative allele is simply defined as the allele that different from whichever happens to be the reference genome. A more common approach is to visualise the minor allele frequency (MAF), i.e. the frequency of the least-common alelle in the population.\nWe can calculate the MAF for each variant, adding it as a new column to our data frame, followed by a new histogram:\n\n# add a column of minor allele frequency\nafreq &lt;- afreq |&gt; \n  mutate(maf = ifelse(alt_freqs &gt; 0.5, 1 - alt_freqs, alt_freqs)) \n\n# MAF histogram\nafreq |&gt; \n  ggplot(aes(maf)) +\n  geom_histogram(binwidth = 0.01)\n\n\n\n\n\n\n\n\nWe can see the histogram is quite skewed, with many SNPs having very low frequency. In fact, some of them are not variable at all in our samples! We can quickly tabulate how many SNPs are above the commonly-used 1% threshold of allele frequency:\n\ntable(afreq$maf &gt; 0.01)\n\n\n  FALSE    TRUE \n3474658  876844 \n\n\nWe can see that the majority of variants have very low frequency. These must be variants that have been found to vary in other individuals of the 1000 genomes project, but happen to be invariant in our relatively small collection of samples.\nLow frequency variants are often filtered out when performing downstream analyses, such as the association test. This is because they have low statistical power, leading to noisy estimates (you can think of it as having a low sample size for one of the classes of genotypes).\nTo exclude variants with low minor allele frequency, for example at a 1% threshold, we can use PLINK’s option --maf 0.01.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#hardyweinberg",
+    "href": "materials/03-qc_variants.html#hardyweinberg",
+    "title": "5  Variant QC",
+    "section": "5.4 Hardy–Weinberg",
+    "text": "5.4 Hardy–Weinberg\nAnother quality control step is to check whether SNPs significantly deviate from Hardy-Weinberg equilibrium, which is expected if individuals mate randomly.\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --chr 1-22 \\\n  --hardy\nThis outputs a file with .hardy extension, which we can read into R:\n\nhardy &lt;- read_tsv(\"results/1000G_subset.hardy\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \nhead(hardy)\n\n# A tibble: 6 × 10\n  chrom id    a1    ax    hom_a1_ct het_a1_ct two_ax_ct o_het_a1 e_het_a1      p\n  &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;  &lt;dbl&gt;\n1     1 rs16… A     C          1037         0         0 0        0        1     \n2     1 rs14… C     T          1010         5         1 0.00492  0.00687  0.0103\n3     1 rs12… T     C          1033         4         0 0.00386  0.00385  1     \n4     1 rs14… G     C          1035         2         0 0.00193  0.00193  1     \n5     1 rs14… C     T          1035         2         0 0.00193  0.00193  1     \n6     1 rs54… T     G          1036         1         0 0.000964 0.000964 1     \n\n\nOne possible visualisation of these data is to plot the expected heterozygosity versus the observed heterozygosity and colour the points as to whether they are below a chosen p-value threshold:\n\nhardy |&gt; \n  # randomply sample SNPs \n  # to avoid plot window from crashing\n  sample_n(10e3) |&gt; \n  ggplot(aes(e_het_a1, o_het_a1)) + \n  geom_point(aes(colour = p &lt; 0.001)) +\n  geom_abline() +\n  labs(x = \"Expected heterozygosity\", y = \"Observed heterozygosity\")\n\n\n\n\n\n\n\n\nFrom this plot, we can see an excess of SNVs with lower heterozygosity than expected compared to those with higher heterozygosity. This discrepancy is because our samples originate from diverse global regions that do not form a “randomly mating population”.\nAs an example, consider a variant present in one geographical area (e.g., individuals from a specific country) but absent elsewhere. The Hardy-Weinberg equilibrium assumes random mating across the entire population, therefore variants with limited geographic distribution may appear to have an excess of homozygotes. In reality, these variants are simply missing from certain populations.\nSo, while variants might fit Hardy-Weinberg expectations within randomly mating sub-populations, they will seem to deviate from it when these groups are pooled together. This phenomenon is known as the Wahlund effect and results from population structure, a topic which we return to in a later chapter.\nIn downstream analysis, we can exclude SNPs with a low p-value for the Hardy-Weinberg deviation test. However, due to the population structure issue just discussed, we only exclude SNPs with higher-than-expected heterozygosity. High rates of heterozygosity may indicate genotyping errors, which we want to eliminate. Wehreas low rates of heterozygosity may simply be due to population structure, which we want to retian. To discard only high heterozygosity SNVs having p-value &lt; 0.001, we can use the option --hwe 0.001 keep-fewhe.\n\n\n\n\n\n\nTipTip: Running multiple options at once\n\n\n\nWe have seen a few PLINK commands that are useful for checking properties of our genotype data:\n\n--missing to assess genotype missingness both across SNPs and samples.\n--freq to assess the allele frequency across SNPs.\n--hardy to assess genotype frequency deviations from the Hardy-Weinberg equilibrium expectation.\n\nSo far, we have run each of these options individually, however you can run multiple options simultaneously. For example, our previous analyses could have been run with a single command:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --chr 1-22 \\\n  --freq --hardy --missing\nThis would produce all three respective results files in one go.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#ld-prunning",
+    "href": "materials/03-qc_variants.html#ld-prunning",
+    "title": "5  Variant QC",
+    "section": "5.5 LD prunning",
+    "text": "5.5 LD prunning\nBefore proceeding with our next quality checks, we will perform a linkage disequilibrium (LD) pruning step. This is a process that identifies variants that are in high linkage disequilibrium with each other, i.e. they are correlated and therefore provide redundant information.\nHaving a set of uncorrelated variants (i.e. in linkage equilibrium) is useful for many downstream analyses, such as principal component analysis (PCA) and estimates of individual inbreeding, which we will cover in the next chapter.\nIdentify variants in linkage equilibrium, we can use the --indep-pairwise option in PLINK. This option requires at least two options:\n\nWindow size: how many neighbouring variants are considered at each step of the algorithm.\nR-squared threshold: how correlated the variants need to be in order to be prunned.\n\nThe algorithm then proceeds by sliding a window of the specified size across the genome, calculates the correlation for each pair of variants in that window, and prunes one of them if the correlation is above the specified threshold.\nFor our analysis, we will use a window size of 100 variants and an r-squared threshold of 0.8:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --chr 1-22 --hwe 0.001 keep-fewhe --maf 0.01 \\\n  --indep-pairwise 100 0.8\nWe have also restricted the analysis to chromosomes 1-22, as our main downstream analyses will only consider autosomes. And we exclude sites that have excess heterozygosity (i.e. those that deviate from Hardy-Weinberg equilibrium) and low minor allele frequency (MAF &lt; 1%).\nThe command above produces two files with the suffix .prune.in (variants that were kept by the algorithm, i.e. they should be largely uncorrelated) and .prune.out (the variants that were eliminated).\nThese files simply have a single column with the variant IDs:\nhead results/1000G_subset.prune.in\nrs1463012642\nrs1200541360\nrs1472769893\nrs1422057391\nrs540466151\nrs1478422777\nrs1365462007\nrs1385614989\nrs1385058577\nrs533630043\nNow, in downstream analyses where we only want to use uncorrelated SNPs (e.g., PCA, sample inbreeding, relatedness), we can use the --extract option to use only the variants in the .prune.in file.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/03-qc_variants.html#summary",
+    "href": "materials/03-qc_variants.html#summary",
+    "title": "5  Variant QC",
+    "section": "5.6 Summary",
+    "text": "5.6 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nKey metrics for variant-level quality control include: call rate, minor allele frequency and Hardy-Weinberg equilibrium.\nCall rates (--missing): variants with low call rates (e.g. &lt;95% or &gt;5% missing data) are typically excluded.\n\nTo remove variants with missing data above a certain threshold use --geno X (replace X with the desired fraction, e.g. 0.05).\n\nMinor allele frequency (--maf): very rare variants (e.g. &lt;1%) have low statistical power and are usually removed from downstream analysis.\n\nTo remove variants with MAF below a certain threshold use --maf X (replace X with the desired frequency, e.g. 0.01).\n\nHardy-Weinberg equilibrium: variants for which genotype frequencies of homozygotes and heterozygous individuals deviate from expectation are removed as they may be due to genotyping errors, inbreeding, and other causes.\n\nCare should be taken with this statistic, as an excess of homozygotes is expected if there are different sub-populations within the sample being analysed (e.g. samples from different geographic regions).\nGenotyping errors usually result in an excess of heterozygous, and these can be removed using --hwe X keep-fewhe (replace X with a p-value threshold, typically a low value such as 0.001).\n\nLinkage disequilibrium (LD) pruning (--indep-pairwise): identifies variants that in high LD with each other, i.e. they are correlated and therefore provide redundant information.\n\nUseful for downstream analyses, such as PCA, estimating individual inbreeding and relatedness between samples.\nTo perform LD pruning use --indep-pairwise X Y (replace X with the window size, e.g. 100, and Y with the r-squared threshold, e.g. 0.8).",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Variant QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html",
+    "href": "materials/04-qc_samples.html",
+    "title": "6  Sample QC",
+    "section": "",
+    "text": "6.1 Per-sample metrics\nSimilarly to what we did for variants, we also investigate quality issues in our samples. We will consider the following metrics for each sample:\nWe will cover each of these below.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#per-sample-metrics",
+    "href": "materials/04-qc_samples.html#per-sample-metrics",
+    "title": "6  Sample QC",
+    "section": "",
+    "text": "Call rate: Fraction of missing genotypes. Variants with a high fraction of missing data may indicate overall low quality for that sample and thus be removed from downstream analysis.\nHeterozygosity: The fraction of SNVs that are heterozygous in a given sample. We expect most individuals to have a mixture of both homozygous and heterozygous SNVs. Outliers may indicate genotyping errors.\nRelatedness: Individuals who are related to each other (e.g. siblings, cousins, parents and children) may affect the association test results and create false positive hits. It is therefore good to assess if there are potential close family members before proceeding.\n\nDiscordant sex: In humans, we expect males to have only one X chromosome and thus no heterozygous variants, while the converse is true for females. This expectation can be used to identify potential mis-matches and correct them before proceeding.\n\n\n\n\n\n\n\n\nImportantSet up your R session\n\n\n\nIf you haven’t done so already, start an R session with the following packages loaded:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#call-rates",
+    "href": "materials/04-qc_samples.html#call-rates",
+    "title": "6  Sample QC",
+    "section": "6.2 Call rates",
+    "text": "6.2 Call rates\nSimilarly to what we did for variants, we can calculate how many missing genotypes each individual sample has. This can then be used to assess the need to exclude samples from downstream analyses.\nThere are no set rules as to what constitutes a “good call rate”, but typically we may exclude samples with greater than ~5% of missing genotypes. This threshold may vary, however, depending on the nature of data you have.\nAs we saw before, the option --missing generates missingness files for both samples and variants, so we don’t need to re-run the PLINK command. However, here it is as a reminder:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --missing\nFor the sample missingness report the file extension is .smiss, which we can import into R as usual:\n\nsmiss &lt;- read_tsv(\"results/1000G_subset.smiss\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \n# inspect the table\nhead(smiss)\n\n# A tibble: 6 × 6\n  iid     super_pop population missing_ct  obs_ct    f_miss\n  &lt;chr&gt;   &lt;chr&gt;     &lt;chr&gt;           &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;\n1 HG00097 N         N                   0 4467560 0        \n2 HG00107 N         N                 104 4474704 0.0000232\n3 HG00108 N         N                  96 4474704 0.0000215\n4 HG00109 N         N               35707 4474704 0.00798  \n5 HG00110 N         N                   0 4467560 0        \n6 HG00111 N         N                   0 4467560 0        \n\n\nWe can tabulate how many samples have missing genotypes:\n\ntable(smiss$missing_ct &gt; 0)\n\n\nFALSE  TRUE \n  408   629 \n\n\nAround 61% of our samples have missing data in at least one of the variants.\nFor those samples with some missing data, we can check the distribution of the fraction of missing genotypes:\n\nsmiss |&gt; \n  filter(f_miss &gt; 0) |&gt; \n  ggplot(aes(f_miss)) +\n  geom_histogram()\n\n\n\n\n\n\n\n\nFrom this distribution it seems that most individuals have a low fraction of missing genotypes, indicating no problematic samples.\nA filter is probably not even necessary in this case, as no sample seems to have more than 5% missing data. In any case, individuals with high rates of missing data, e.g. using the 5% threshold, can be excluded using PLINK’s option --mind 0.05.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#heterozygosity-and-inbreeding",
+    "href": "materials/04-qc_samples.html#heterozygosity-and-inbreeding",
+    "title": "6  Sample QC",
+    "section": "6.3 Heterozygosity and inbreeding",
+    "text": "6.3 Heterozygosity and inbreeding\nAnother useful metric to assess issues with sample quality is to look at the fraction of variants that are heterozygous, or conversely what the inbreeding coefficient of each individual is. In general, we expect an individual to have both homozygous and heterozygous genotypes. Individuals with high heterozygosity may represent poor quality samples (e.g. contaminated samples composed of a mixture of DNA from two individuals). Conversely, individuals with high homozygosity may indicate inbreeding, which can impact the balance of allele frequencies in the population (as discussed in the Hardy-Weinberg equilibrium section) and potentially bias the results of our association tests.\nThere isn’t necessarily a clear value, but within a population we should expect the distribution of heterozygosity to be consistent across individuals. If an individual is an outlier (e.g. with too many homozygous or heterozygous sites), then we may infer some quality issues may have ocurred with that sample.\nPLINK can calculate per-sample heterozygosity rates using the option --het:\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --extract results/1000G_subset.prune.in \\\n  --geno 0.05 --maf 0.01 --mind 0.05 \\\n  --het\nIn this command we also apply the variant filters defined in the variant QC section. Namely, retaining genotypes and samples with a call rate of at least 95% (--geno 0.05 --mind 0.05) and minor allele frequency of at least 1% (--maf 0.01). And use the --extract option to only include uncorrelated variants, obtained by LD prunning.\nThe output file has extension .het, which we can import into R:\n\nhet &lt;- read_tsv(\"results/1000G_subset.het\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n\nhead(het)\n\n# A tibble: 6 × 5\n  iid      o_hom  e_hom obs_ct     f\n  &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;\n1 HG00097 511803 494932 602310 0.157\n2 HG00107 509813 494932 602310 0.139\n3 HG00108 510716 494932 602310 0.147\n4 HG00109 504334 490975 597513 0.125\n5 HG00110 513805 494932 602310 0.176\n6 HG00111 511396 494932 602310 0.153\n\n\nWe have four values for each individual:\n\no_hom is the number of observed homozygous genotypes.\ne_hom is the expected number of homozygous genotypes, based on the allele frequencies in the population and under Hardy-Weinberg equilibrium (HWE).\nobs_ct is the number of non-missing genotypes.\nf is the inbreeding coefficient, which represent the individual heterozygosity relative to the expectation under HWE (see box below for details on its calculation).\n\n\n\n\n\n\n\nNoteInbreeding coefficient calculation\n\n\n\n\n\nLet’s call \\(H_{obs}\\) the observed fraction of heterozygote variants in an individual and \\(H_{exp}\\) the expected heterozygosity under Hardy-Weinberg equilibrium (HWE).\nThe inbreeding coefficient is usually defined as:\n\\[\nF = 1 - \\frac{H_{obs}}{H_{exp}}\n\\]\nI.e., it is the difference between the expected and observed heterozygosity, divided by the expected heterozygosity.\n\nA value of 0 would indicate that the individual is heterozygous at the expected rate, since \\(H_{obs} = H_{exp}\\).\nA value of 1 would indicate that the individual is completely homozygous, since \\(H_{obs} = 0\\).\nIf \\(H_{obs} &lt; H_{exp}\\), then the inbreeding coefficient will be between 0 and 1, indicating different levels of homozygosity or inbreeding.\nIf \\(H_{obs} &gt; H_{exp}\\), then the individual is more heterozygous than expected under HWE and the inbreeding coefficient takes negative values.\n\nRather than reporting the observed and expected heterozygosity, PLINK reports things as counts of homozygous variants. Because all of these can be calculated from each other, we can rearrange the equation above to express the inbreeding coefficient in terms of the number of homozygous genotypes.\nLet’s call \\(O_{hom}\\) the number of observed homozygous genotypes, \\(E_{exp}\\) the number of expected homozygous genotypes and \\(O_{total}\\) the total number of variants. Then, the equation above could be written as:\n\\[\nF = 1 - \\frac{O_{total} - O_{hom}}{O_{total} - E_{hom}}\n\\]\nWhich we can further rearrange to:\n\\[\nF = \\frac{O_{hom} - E_{hom}}{O_{total} - E_{hom}}\n\\]\nWe can confirm this is how PLINK calculates the inbreeding value:\n\nhet |&gt; \n  mutate(f2 = (o_hom - e_hom) / (obs_ct - e_hom))\n\n# A tibble: 1,037 × 6\n   iid      o_hom  e_hom obs_ct     f    f2\n   &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;\n 1 HG00097 511803 494932 602310 0.157 0.157\n 2 HG00107 509813 494932 602310 0.139 0.139\n 3 HG00108 510716 494932 602310 0.147 0.147\n 4 HG00109 504334 490975 597513 0.125 0.125\n 5 HG00110 513805 494932 602310 0.176 0.176\n 6 HG00111 511396 494932 602310 0.153 0.153\n 7 HG00112 504590 488807 594863 0.149 0.149\n 8 HG00114 510423 494932 602310 0.144 0.144\n 9 HG00118 508905 494932 602310 0.130 0.130\n10 HG00119 511823 494932 602310 0.157 0.157\n# ℹ 1,027 more rows\n\n\n\n\n\nLet’s consider the distribution of inbreeding coefficients for the individuals in our sample. A value of 0 indicates that the individual is heterozygous at the expected rate, while a value of 1 indicates that the individual is completely homozygous. Negative values indicate that the individual is more heterozygous than expected under HWE.\nWe can make a histogram of the inbreeding coefficient:\n\nhet |&gt; \n  ggplot(aes(f)) +\n  geom_histogram()\n\n\n\n\n\n\n\n\nIn general we can see there are no individuals with very extreme inbreeding values (e.g. close to 1). We can see some individuals with slightly negative values, indicating they are more heterozygous than expected under HWE.\nThe main issue we see is that the distribution is multi-modal. This indicates that we have different groups of samples, some with higher rates of inbreeding and others with lower rates.\nThis is likely a consequence of the fact we have individuals from different populations (geographic areas). This is an issue we will come back to in the population structure chapter.\nFor now, it is clear that we cannot easily filter samples based on their heterozygosity, as the populations are heterogeneous.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#sample-relatedness",
+    "href": "materials/04-qc_samples.html#sample-relatedness",
+    "title": "6  Sample QC",
+    "section": "6.4 Sample relatedness",
+    "text": "6.4 Sample relatedness\nOne other thing that can be considered is whether there are potential relationships within your samples. In our dataset all samples are supposed to be unrelated.\nplink2 \\\n  --pfile data/plink/1000G_subset \\\n  --out results/1000G_subset \\\n  --extract results/1000G_subset.prune.in \\\n  --geno 0.05 --maf 0.01 --mind 0.05 \\\n  --make-king-table\nThis outputs a file with format .kin0, which contains pairwise kinship coefficients for each pair of samples. We can read this table into R as usual:\n\nking &lt;- read_tsv(\"results/1000G_subset.kin0\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \nhead(king)\n\n# A tibble: 6 × 6\n  iid1    iid2      nsnp hethet   ibs0  kinship\n  &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;\n1 HG00107 HG00097 602310 0.0543 0.0271 -0.00541\n2 HG00108 HG00097 602310 0.0533 0.0267 -0.00315\n3 HG00108 HG00107 602310 0.0552 0.0260  0.00805\n4 HG00109 HG00097 597513 0.0560 0.0268 -0.00131\n5 HG00109 HG00107 597513 0.0568 0.0256  0.0145 \n6 HG00109 HG00108 597513 0.0563 0.0260  0.00769\n\n\nFor each pair of samples we now have the kinship coefficient calculated using the KING method. The authors of this method indicate that unrelated individuals should have a kinship coefficient of zero, but they recommend using a threshold of ~0.044 (cf. Table 1 in Manichaikul et al. 2010).\nWe can check how many individuals are above this threshold:\n\ntable(king$kinship &gt; 0.044)\n\n\n FALSE   TRUE \n537152     14 \n\n\nOnly 14 individuals are above this threshold. We can also look at the distribution of this kinship coefficient:\n\nking |&gt; \n  ggplot(aes(kinship)) +\n  geom_histogram(bins = 100) +\n  geom_vline(xintercept = 1/16)\n\n\n\n\n\n\n\n\nSimilar to what we’ve seen before for heterozygosity, we get a multi-modal distribution of kinship values. This is again likely because of population structure, i.e. the fact that our samples come from different geographic areas and thus may have differing base levels of “residual relatedness”.\nHowever, we can see all most values are negative, which can happen with this coefficient and essentially indicates no relatedness between individuals.\nMore worringly, we can see some individuals seem closely related if we sort the table in descending order of kinship and look at the top few rows:\n\nking |&gt; \n  arrange(desc(kinship)) |&gt; \n  head(n = 15)\n\n# A tibble: 15 × 6\n   iid1    iid2      nsnp hethet     ibs0 kinship\n   &lt;chr&gt;   &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;\n 1 HG00581 HG00578 600692 0.0861 0.00503   0.266 \n 2 HG00635 HG00578 592174 0.0832 0.00564   0.252 \n 3 NA20900 NA20882 596183 0.0787 0.000112  0.251 \n 4 HG00635 HG00581 590772 0.0789 0.00680   0.232 \n 5 NA19664 NA19660 602310 0.0648 0.0162    0.0998\n 6 HG03457 HG03454 602310 0.0750 0.0229    0.0731\n 7 NA19312 NA19307 598342 0.0752 0.0232    0.0713\n 8 HG03372 HG03301 602310 0.0744 0.0232    0.0705\n 9 HG00607 HG00578 596988 0.0575 0.0187    0.0682\n10 HG03998 HG03866 600897 0.0620 0.0201    0.0661\n11 NA19384 NA19025 602310 0.0728 0.0238    0.0626\n12 HG00595 HG00577 602310 0.0569 0.0201    0.0558\n13 HG00607 HG00581 595469 0.0553 0.0199    0.0538\n14 HG00635 HG00607 587561 0.0550 0.0198    0.0526\n15 NA20346 NA20340 591675 0.0709 0.0264    0.0432\n\n\nWe see a few individuals have a kinship coefficient of ~1/4, which is indicative of full siblings. Others are close to ~1/8 (second degree relationships, e.g. cousins) and a few close to ~1/16 (third degree relationship).\nTo eliminate close relationships from downstream analysis, we can use PLINK’s option --king-cutoff 0.125 to eliminate at least second degree relationships.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#discordant-sex",
+    "href": "materials/04-qc_samples.html#discordant-sex",
+    "title": "6  Sample QC",
+    "section": "6.5 Discordant sex",
+    "text": "6.5 Discordant sex\n\n\n\n\n\n\nCautionWork in progress\n\n\n\nSorry, this section isn’t yet finished. There’s a brief explanation below, but we are still working on having data suitable to demonstrate this analysis.\n\n\nAnother thing that can be checked is whether the sex assigned to each of our samples is correct, based on the genetic data. This relies on having genotypes in a sex chromosome and checking whether the heterozygosity matches the expectation. For example, in humans males have one copy of the X chromosome, and females two. Therefore, all males should be homozygous for variants in the X chromosome, whereas females may have a mixture of heterozygous and homozygous sites.\nWe can do this quality check using PLINK’s --check-sex option:\nplink2 --pfile data/plink/1000G_subset --out results/1000G_subset --check-sex\nUnfortunately this does now work in our example data, as we are missing genotypes on the X chromosome.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/04-qc_samples.html#summary",
+    "href": "materials/04-qc_samples.html#summary",
+    "title": "6  Sample QC",
+    "section": "6.6 Summary",
+    "text": "6.6 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nKey metrics for sample-level quality control include: call rate, heterozygosity, relatedness and sex assignment.\nCall rates (--missing): samples with low call rates (e.g. &lt;95% or &gt;5% missing genotypes) are typically excluded.\n\nTo remove samples missing genotypes above a certain threshold use --mind X (replace X with the desired fraction, e.g. 0.05).\n\nHeterozygosity (--het): samples that are outlier with regards to the number of heterozygous variants relative to other samples are typically excluded as they may represent errors (e.g. mixed samples or genotyping errors).\n\nIt is common practice to remove samples a certain number of standard deviations away from the observed distribution (e.g. +/- 3 SDs).\nHowever, this should only be applied to samples from relatively homogenous populations, as different sub-populations may have different distributions.\n\nSample relatedness (--king): even when individuals are thought to be unrelated, there may be some criptic relatedness that was previously unknown. Excluding very close relatives is best-practice to avoid biasing downstream association tests.\n\nTo exlude individuals above a certain kinship score threshold use --king-cutoff X (replace X with the desired threshold). Common thresholds include 1/4 for full siblings, 1/8 for second degree relatives and 1/16 for third degree relatives.\n\nDiscordant sex (--check-sex): it is good practice to check if the sex assigned to the individual (specified in the .psam/.fam file) matches the sex from genetic data. This can be determined from genotypes in the sex chromosomes. Individual with discordant sex may either be corrected or removed from the analysis.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Sample QC</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html",
+    "href": "materials/05-pop_structure.html",
+    "title": "7  Population structure",
+    "section": "",
+    "text": "7.1 Population stratification\nPopulations from different geographic regions may genetically diverge from each other due to evolutionary processes such as drift, selection, migration, bottlenecks, etc. This creates patterns in the genetic background of the individuals from these populations, such that we can, for example, infer their ancestry from their genome sequences. This is what we refer to as population structure.\nIntuitively, it’s easy to understand that human individuals from the same country are genetically more similar to each other compared to individuals from other countries. Much of this similarity is simply a consequence of their shared evolutionary history, and not directly related to traits that also differ between those populations. Thus, population structure may confound our trait association analysis and needs to be investigated and taken into account in downstream analyses.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html#population-stratification",
+    "href": "materials/05-pop_structure.html#population-stratification",
+    "title": "7  Population structure",
+    "section": "",
+    "text": "ImportantSet up your R session\n\n\n\nIf you haven’t done so already, start an R session with the following packages loaded:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html#principal-components-analysis",
+    "href": "materials/05-pop_structure.html#principal-components-analysis",
+    "title": "7  Population structure",
+    "section": "7.2 Principal components analysis",
+    "text": "7.2 Principal components analysis\nOne popular way to assess the presence of population structure is to use principal components analysis (PCA) using the genetic data, to help cluster the individual samples based on their genotypes.\nPLINK provides the --pca option to perform this task. In the following command we use this option, along with several filters based on our quality control exploration done in previous sections:\nplink2 --pfile data/plink/1000G_subset --out results/1000G_subset \\\n  --extract results/1000G_subset.prune.in \\\n  --geno 0.05 --mind 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \\\n  --king-cutoff 0.125 \\\n  --pca\nTo recap, our filters are:\n\n--geno 0.05 removes variants with &gt; 5% missing data.\n--mind 0.05 removes samples with &gt; 5% missing data.\n--maf 0.01 removes variants with &lt; 1% minor allele frequency.\n--hwe 0.001 keep-fewhet removes variants with p-value &lt; 0.001 for the HWE test, but only those with high heterozygosity (as low heterozygosity variants may be due to population structure).\n--king-cutoff 0.125 removes individuals with kinship coefficient greater than 1/8 (second-degree relatives).\n\nThe PCA option outputs two files:\n\n.eigenvec contains the principal component scores (also known as eigen vectors), which are the coordinates of each sample on the new dimensionality space.\n.eigenval contains the variance explained by each principal component (also know as eigen values), which can be used to calculate the fraction of variance explained.\n\nWe explore each of these in turn.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html#variance-explained",
+    "href": "materials/05-pop_structure.html#variance-explained",
+    "title": "7  Population structure",
+    "section": "7.3 Variance explained",
+    "text": "7.3 Variance explained\nA standard practice when analysing a PCA is to consider what fraction of the variance in the original data (in our case genotypes) is explained by each of the principal components.\nThis is stored in the .eigenval file, which is a simple text file with one value of variance per line:\nhead -n 5 results/1000G_subset.eigenval\n79.3207\n44.1399\n6.95917\n3.5593\n3.55036\nWe import this file into into R, making sure to specify a column name manually. We also add a new column to the table, specifying the principal component number. Finally, we add a column that calculates the fraction of variance explained by each PC.\n\n# read table adding a column name manually\neigenval &lt;- read_tsv(\"results/1000G_subset.eigenval\",\n                     col_names = \"var\")\n\n# add columns with PC number and pct variance explained\neigenval &lt;- eigenval |&gt; \n  mutate(pc = 1:n(),\n         pct_var = var/sum(var)*100)\n  \nhead(eigenval)\n\n# A tibble: 6 × 3\n    var    pc pct_var\n  &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt;\n1 90.5      1   60.1 \n2 28.1      2   18.7 \n3  9.74     3    6.47\n4  7.69     4    5.11\n5  3.42     5    2.27\n6  2.93     6    1.94\n\n\nWith this table we can now make a barplot of variance explained by each principal component, as well as the cumulative variance explained. This is known as a scree plot.\n\neigenval |&gt; \n  ggplot(aes(pc, pct_var)) +\n  geom_col() +\n  geom_line(aes(y = cumsum(pct_var))) +\n  scale_x_continuous(breaks = 1:10) +\n  scale_y_continuous(breaks = seq(0, 100, by = 20))\n\n\n\n\n\n\n\n\nFrom this visualisation, we can see that most of the genetic variance in our samples is explained by the first two principal components (~80%). This is, by itself, already an indication that there is substantial population structure in our data.\nThis should not be surprising, as we know that our individuals come from different geographic regions.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html#pca-plot",
+    "href": "materials/05-pop_structure.html#pca-plot",
+    "title": "7  Population structure",
+    "section": "7.4 PCA plot",
+    "text": "7.4 PCA plot\nWe now read the eigen vectors, i.e. the principal component scores that represent our samples in the low-dimensionality space calculated by the PCA method.\nThis is stored in the .eigenvec file, which we can read into R as usual:\n\neigenvec &lt;- read_tsv(\"results/1000G_subset.eigenvec\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n\nhead(eigenvec)\n\n# A tibble: 6 × 11\n  iid         pc1    pc2     pc3     pc4       pc5     pc6       pc7       pc8\n  &lt;chr&gt;     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;\n1 HG00097 -0.0182 0.0417 0.00781 -0.0312 -0.00315  0.00281 -0.000807 -0.000515\n2 HG00107 -0.0186 0.0401 0.0118  -0.0336 -0.00128  0.00135  0.00413   0.00164 \n3 HG00108 -0.0182 0.0401 0.0105  -0.0322 -0.000855 0.00491  0.000789 -0.000235\n4 HG00109 -0.0182 0.0407 0.00967 -0.0360 -0.000648 0.00386  0.00294   0.00440 \n5 HG00110 -0.0186 0.0397 0.00971 -0.0321  0.000463 0.00379  0.00173  -0.00215 \n6 HG00111 -0.0183 0.0404 0.00884 -0.0282 -0.00159  0.00382 -0.00155  -0.000881\n# ℹ 2 more variables: pc9 &lt;dbl&gt;, pc10 &lt;dbl&gt;\n\n\nIn addition to the family and individual IDs, we have 10 columns representing the coordinates of each sample on the principal component space.\n\n\n\n\n\n\nExerciseExercise 1 - PCA plot\n\n\n\n\n\n\nUse ggplot to make a scatter plot of PC1 vs PC2.\nWhat can you conclude about the extent of population structure in the data?\n\n\n\n\n\n\nAnswerAnswer\n\n\n\n\n\n\nThe code to produce the plot is:\n\neigenvec |&gt; \n  ggplot(aes(pc1, pc2)) +\n  geom_point()\n\n\n\n\n\n\n\n\nThis very clearly shows population structure in our samples. We can see how groups of samples cluster together in our PCA, indicating their genetic similarity.\nTipically we focus on the first 2 PCs, as these explain the most variance, but you may sometimes want to explore further PCs, especially if they still explain a substantial percentage of the variation in the data.\n\n\n\n\n\n\n\n\n\n7.4.1 Adding metadata\nThe visualisation created in the exercise above is useful, but we can improve it by joining the sample metadata and colouring our points by world region.\n\n# read the sample metadata file\nsample_info &lt;- read_tsv(\"data/sample_info.tsv\")\n\nhead(sample_info)\n\n# A tibble: 6 × 18\n  family_id individual_id paternal_id maternal_id gender phenotype population\n  &lt;chr&gt;     &lt;chr&gt;               &lt;dbl&gt; &lt;chr&gt;        &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;     \n1 HG00096   HG00096                 0 0                1         0 GBR       \n2 HG00097   HG00097                 0 0                2         0 GBR       \n3 HG00099   HG00099                 0 0                2         0 GBR       \n4 HG00100   HG00100                 0 0                2         0 GBR       \n5 HG00101   HG00101                 0 0                1         0 GBR       \n6 HG00102   HG00102                 0 0                2         0 GBR       \n# ℹ 11 more variables: relationship &lt;chr&gt;, siblings &lt;chr&gt;, second_order &lt;chr&gt;,\n#   third_order &lt;chr&gt;, children &lt;dbl&gt;, other_comments &lt;dbl&gt;,\n#   phase_3_genotypes &lt;dbl&gt;, related_genotypes &lt;dbl&gt;, omni_genotypes &lt;dbl&gt;,\n#   affy_genotypes &lt;dbl&gt;, super_pop &lt;chr&gt;\n\n# join the eigenvector table with the metadata table\neigenvec &lt;- eigenvec |&gt; \n  left_join(sample_info, \n            by = c(\"iid\" = \"individual_id\"))\n  \n# confirm column names in the joined table\ncolnames(eigenvec)\n\n [1] \"iid\"               \"pc1\"               \"pc2\"              \n [4] \"pc3\"               \"pc4\"               \"pc5\"              \n [7] \"pc6\"               \"pc7\"               \"pc8\"              \n[10] \"pc9\"               \"pc10\"              \"family_id\"        \n[13] \"paternal_id\"       \"maternal_id\"       \"gender\"           \n[16] \"phenotype\"         \"population\"        \"relationship\"     \n[19] \"siblings\"          \"second_order\"      \"third_order\"      \n[22] \"children\"          \"other_comments\"    \"phase_3_genotypes\"\n[25] \"related_genotypes\" \"omni_genotypes\"    \"affy_genotypes\"   \n[28] \"super_pop\"        \n\n\nAs our table now contains the columns from the sample metadata, as well as the principal component scores, we can make a nicer visualisation of our PCA.\nWe colour points by the world region (super_pop column) and also add the percentage of variance explained to the x and y axis labels.\n\neigenvec |&gt; \n  ggplot(aes(pc1, pc2, colour = super_pop)) +\n  geom_point() +\n  labs(x = paste0(\"PC1 (\", round(eigenval$pct_var[1]), \"%)\"), \n       y = paste0(\"PC2 (\", round(eigenval$pct_var[2]), \"%)\"), \n       colour = \"World Region\")\n\n\n\n\n\n\n\n\nAs we suspected, this very clearly shows individuals clustering by the world region they originate from.\nWe can also see some spread of points within each world region. This is likely due to even further population structure, as individuals within these regions also come from different countries.\nAnother way in which PCA can be used, is in detecting outlier individuals, i.e. individuals that cluster outside of their expected geographic region. It may be best to remove such individuals, as their metadata and/or genotype data may be innacurate.\nPopulation stratification needs to be taken into account when we run our association analysis, which is the topic of the next chapter.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/05-pop_structure.html#summary",
+    "href": "materials/05-pop_structure.html#summary",
+    "title": "7  Population structure",
+    "section": "7.5 Summary",
+    "text": "7.5 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nPopulation structure refers to the presence of genetic subgroups within a population, which may be caused by evolutionary (e.g. drift and selection) and demographic events (e.g. migration and bottlenecks).\nPopulation structure may confound GWAS results as false-positive associations may be found for traits that differ across those sub-populations.\nA common way to assess the presence of population structure is to run Principal Components Analysis on the genetic data, and assess the clustering of individuals on a PCA plot.\nTogether with metadata, PCA can also be used to assess if an individual is an outlier from its assigned population (e.g. if an individual labelled as European clusters with individuals from East Asia).",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Quality control",
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Population structure</span>"
+    ]
+  },
+  {
+    "objectID": "materials/06-stats.html",
+    "href": "materials/06-stats.html",
+    "title": "8  Association tests and p-values",
+    "section": "",
+    "text": "8.1 Regression models\nAt its simplest, the association test carried out by software such as PLINK is based on linear regression models. Most GWAS software support two types of regression models, depending on the nature of the trait: normal regression for quantitative traits or binomial (logistic) regression for binary traits (case/control, yes/no, presence/absence).\nWe go over the intuition for each of these approaches. In the examples below we assume there are two alleles at a variant (i.e. it is bi-allelic), with alleles “A” and “B”. The three diploid genotypes are written as “AA”, “AB” and “BB”.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Association tests and p-values</span>"
+    ]
+  },
+  {
+    "objectID": "materials/06-stats.html#quantitative-trait-models",
+    "href": "materials/06-stats.html#quantitative-trait-models",
+    "title": "8  Association tests and p-values",
+    "section": "8.2 Quantitative trait models",
+    "text": "8.2 Quantitative trait models\nFor quantitative traits we assume that the trait is well-approximated by a Normal distribution, \\(Trait \\sim N(\\mu, \\sigma^2)\\) with mean \\(\\mu\\) and variance \\(\\sigma^2\\). The mean of this distribution is modelled as dependent on genotype, and we test for the significance of this relationship.\n\n\n\n\n\n\n\n\n\nThe strength of the relationship between genotype and trait is measured by the slope of the regression line, often referred to as Beta (β).\nFor example, if our trait was blood pressure measured in mm Hg, and we estimated β = 3 for a given variant, this would be the interpretation of the results:\n\nGenotype AA: baseline group (carrying zero “B” alleles).\nGenotype AB: +3 mg Hg compared to AA.\nGenotype BB: +6 mg Hg compared to AA.\n\nThis is a so-called “additive genetic model”, where we code the genotypes as “number of B alleles” and we thus assume that homozygotes “BB” increase by twice relative to heterozygotes.\nThe significance of association is determined by testing for the slope of the regression being zero (i.e. a flat line). This is done by using a t-statistic, which measures the “signal-to-noise” ratio of our estimate, and comparing it to a theoretical distribution to obtain a p-value for the association.\n\n\n\n\n\n\nNoteQuantitative traits\n\n\n\nQuantitative traits may include both continuous data (e.g. bmi, height) as well as discrete count data (e.g. cell count, cigarette consumption).\nWith generalised linear models, count data would usually be modelled using a more appropriate distribution rather than the Normal (e.g. a Poisson or Negative Binomial regression). However, these methods can be computationally expensive and so, in practice, software packages for GWAS usually only implement the normal regression model for quantitative traits. Additionally, GWAS sample sizes tend to be large (in the hundreds, thousands, or even millions), and so the normal approximation is a reasonable assumption even for discrete count variables.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Association tests and p-values</span>"
+    ]
+  },
+  {
+    "objectID": "materials/06-stats.html#binary-trait-models",
+    "href": "materials/06-stats.html#binary-trait-models",
+    "title": "8  Association tests and p-values",
+    "section": "8.3 Binary trait models",
+    "text": "8.3 Binary trait models\nConceptually, things are very similar for binary traits, except we assume the trait comes from a binomial (think of coin flips 🪙): \\(Trait \\sim Binomial(n, p)\\) with known sample size \\(n\\) (that’s how many individuals we have) and a probability \\(p\\) that the event happens. The probability \\(p\\) is modelled as depending on genotype, and we test for the significance of this relationship.\n\n\n\n\n\n\n\n\n\nFor binary traits, the strength of the relationship between trait and genotype is expressed as an odds ratio (OR), which compares the odds that the event happens in one group versus another. Let’s break this down. First, we define the odds of an event, which is the probability that the event occurs over the probability that it doesn’t:\n\\[\n\\text{Odds} = \\frac{p}{1 - p}\n\\]\nTaking a concrete example, if our trait is “type 2 diabetes”, the odds represents the probability change in having this condition, relative to not having it:\n\\[\n\\text{Odds} = \\frac{\\text{probability diabetes}}{\\text{probability healthy}}\n\\]\nAn odds ratio is then the ratio of odds between two groups. In the context of GWAS, we report odds ratios per-allele increase, i.e. between a group that has 1 allele versus the group without that allele. Taking our T2D example and assuming the “AA” genotype is our reference group, then the odds ratio would be:\n\\[\n\\text{Odds Ratio} = \\frac{\\text{odds diabetes for genotype AB}}{\\text{odds diabetes for genotype AA}}\n\\]\nOne important thing to consider is that odds ratios are multiplicative. For example, if the estimate for a given variant was OR = 3 per allele, the interpretation in terms of genotypes is:\n\nGenotype AA: baseline group (carrying zero “B” alleles).\nGenotype AB: 3 times more likely to have the condition than AA.\nGenotype BB: 3² = 9 times more likely to have the condition than AA.\n\nThe significance of association in this case is assessed using a Wald Z-statistic, which similarly to the t-statistic discussed earlier, measures the “signal-to-noise” ratio of our OR estimate. As usual, this is compared to a theoretical distribution to obtain a p-value for the association.\n\n\n\n\n\n\nImportantEffect sizes\n\n\n\nIn the examples given above we used relatively large effect sizes, for illustration purposes. For complex traits the effects of individual variants might be quite small. For example, for type 2 diabetes many found associations have OR of ~1.1 or even less. For reference, this represents a probability of 52% of having the disease compared to 48% for not having it.\nThese are still substantial effects, but not as large as what we used in the examples above.\n\n\n\n\n\n\n\n\nNoteOdds ratios, odds, log-odds and probabilities (click to learn more)\n\n\n\n\n\nLogistic regression models can be challenging to interpret and working with odds is sometimes confusing. Remember, the odds is a ratio of two probabilities: the probability of an event happening versus it not happening.\nBecause of the underlying maths, logistic regression coefficients are usually given as log-odds. This is exactly how it sounds like, it’s the natural log of the odds ratio, also known as the logit function. This transformation is useful as it converts odds, which range from 0 to infinity, to a range of \\((-\\infty, +\\infty)\\), which is easier to work with for the underlying statistical machinery.\nI can be useful to convert probabilities to odds (or log-odds) and back. Say an event has a 75% chance of happening, meaning the odds are 3:1. We can calculate the odds and log-odds like so:\n\n# if you know your probability\nprobability &lt;- 0.75\n\n# calculate odds as:\nodds &lt;- probability / (1 - probability)\nodds\n\n[1] 3\n\n# and log-odds taking the natural log of the previous\nlog_odds &lt;- log(odds)\nlog_odds\n\n[1] 1.098612\n\n\nOn the other hand, if you start from having the odds, for example odds = 3, then you need to: first convert it to log-odds (aka “logit”); then use the inverse-logit function to calculate the probability. Here’s the R code:\n\n# if you know your odds\nodds &lt;- 3\n\n# Inverse-logit: convert log-odds back to probability\nprobability &lt;- plogis(log(odds))\nprobability\n\n[1] 0.75\n\n\nFinally, if you have an odds ratio, you need to remember that this is the ratio of the odds of two groups, which is not the same as the ratio of their probabilities.\nFor example, if the baseline probability is 0.1, then the odds are 0.1/(1-0.1) = 0.1111. If the odds ratio is 3, then the odds of the second group are 3 times larger than the first group, i.e. 0.3333. If we convert this back to a probability (using the inverse-logit function shown above), we would get 0.25, which is not 3 times larger than the baseline probability of 0.1.\nAs we said, it can be confusing to work with odds, but it’s worth spending some time to let these ideas sink in if you work with binary data often.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Association tests and p-values</span>"
+    ]
+  },
+  {
+    "objectID": "materials/06-stats.html#p-value-distribution",
+    "href": "materials/06-stats.html#p-value-distribution",
+    "title": "8  Association tests and p-values",
+    "section": "8.4 P-value distribution",
+    "text": "8.4 P-value distribution\nIn addition to the genotype effect (β or OR), another output of the statistical association test is the p-value of the statistical test for its significance. The association test is performed separately for each variant, so we get as many p-value as there are variants. One of the first steps when analysing the outcome of an association test is to assess potential biases, which can be diagnosed by looking at the p-value distribution.\nIn statistical null hypothesis testing, there is a theoretical expectation that p-values follow a uniform distribution when no effect exists. A p-value of 0.01 is just as likely as a p-value of 0.99 - it’s all just due to random chance. In our case, this would mean no association between the trait and genotype.\n\n\n\n\n\nExample of a distribution of p-values (10k tests) when the null hypothesis is always true.\n\n\n\n\nIn a multiple testing scenario such as GWAS, where many tests being performed (one per variant), we would expect that most variants follow this uniform distribution.\nHowever, if some fraction of the variants are associated with the trait, this will skew the p-value distribution, leading to an excess of small p-values.\n\n\n\n\n\nExample of a distribution of p-values when the null hypothesis is false (i.e. a “statistically significant result”) for a fraction of the tests.\n\n\n\n\nThere is an excellent post in the Variance Explained blog, with further discussions on this topic: How to interpret a p-value histogram, by David Robinson.\n\n8.4.1 Q-Q plots\nAnother way to assess the distribution of p-values is to produce a Q-Q plot, which is a type of scatterplot that compares the distribution of p-values under the expected uniform distribution and the actual observed p-values.\nFor Q-Q plots it is common to plot the p-values as \\(-log_{10}(p-value)\\), which is a transformation that emphasises very small p-values. As small p-values is what we expect to see for “significant” associations (and is what we’re ultimately hoping to see!), this emphasises those very small values by transforming them into relatively large numbers.\nHere are the Q-Q plots of the expected-versus-observed \\(-log_{10}(p-value)\\) for each of the distributions shown above:\n\n\n\n\n\n\n\n\n\nThe diagonal line indicates the expectation under the null hypothesis. As we can see in the examples above, the plot on the left shows all points falling along the diagonal, indicating no significant associations. The plot on the right, on the other hand, shows good fit for part of the distribution, but with an excess of small p-values as shown by a deviation of points towards the top of the graph.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Association tests and p-values</span>"
+    ]
+  },
+  {
+    "objectID": "materials/06-stats.html#summary",
+    "href": "materials/06-stats.html#summary",
+    "title": "8  Association tests and p-values",
+    "section": "8.5 Summary",
+    "text": "8.5 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nThe statistical methods used for association analysis are based on linear regression models.\nQuantitative traits are analysed using normal linear regression, whereas binary traits are modelled using binomial (logistic) regression.\nThe effect sizes of quantitative traits are reported as unit increase per allele and can be interpreted linearly.\nThe effect sizes of binary traits are reported as odds ratios per allele and are multiplicative.\nIn a multiple testing setting, p-values are expected to follow a uniform distribution under the null hypothesis.\nIn general, the distribution of the observed p-values should follow the uniform expectation, except for a few variants that are associated with the trait.\n\nQ-Q plots can be used to assess the expected versus observed p-value distributions.\nLarge deviations from expectation may indicate biases in the analysis that lead to p-value inflation.\n\nDue to multiple testing, a stringent p-value threshold is needed.\n\nFor human GWAS p-value thresholds have been determined based on the general LD patterns observed across the human genome.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Association tests and p-values</span>"
+    ]
+  },
+  {
+    "objectID": "materials/07-glm.html",
+    "href": "materials/07-glm.html",
+    "title": "9  Running GWAS",
+    "section": "",
+    "text": "9.1 Fitting an association model\nFitting a genotypic linear model to our traits with PLINK can be done using the --glm option (for “generalised linear model”). We also need to provide a phenotype file, which is tab-delimited with the first two columns being the family and sample IDs, and remaining columns the traits. PLINK will automatically detect whether the traits are continous or binary and fit a model accordingly.\nAs before, we apply the quality filters discussed in previous sections. Here is the full command:\nWe added a modifier to the --glm option called allow-no-covars. This is because, by default, PLINK expects most standard GWAS to use covariates in the model to account for population structure, which is standard practice. However, we want to explore first what happens if we ignore this aspect when running the association tests.\nThe --glm option generates one file for each trait. The file extensions are .glm.linear for quantitative traits and .glm.logistic.hybrid for binary traits.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Running GWAS</span>"
+    ]
+  },
+  {
+    "objectID": "materials/07-glm.html#fitting-an-association-model",
+    "href": "materials/07-glm.html#fitting-an-association-model",
+    "title": "9  Running GWAS",
+    "section": "",
+    "text": "plink2 --pfile data/plink/1000G_subset --out results/1000G_subset_nocovar \\\n  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \\\n  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \\\n  --pheno data/phenotypes.tsv \\\n  --glm allow-no-covars\n\n\n\n\n\n\n\n\nImportantSet up your R session\n\n\n\nIf you haven’t done so already, start an R session with the following packages loaded:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Running GWAS</span>"
+    ]
+  },
+  {
+    "objectID": "materials/07-glm.html#q-q-plots",
+    "href": "materials/07-glm.html#q-q-plots",
+    "title": "9  Running GWAS",
+    "section": "9.2 Q-Q plots",
+    "text": "9.2 Q-Q plots\nThe results files from --glm are tab-delimited, which we can read into R as usual. We start with one of our quantiative traits, blood pressure:\n\nblood_nocovar &lt;- read_tsv(\"results/1000G_subset_nocovar.blood.glm.linear\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n\nhead(blood_nocovar)\n\n# A tibble: 6 × 16\n  chrom   pos id         ref   alt   provisional_ref a1    omitted a1_freq test \n  &lt;chr&gt; &lt;dbl&gt; &lt;chr&gt;      &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;           &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;\n1 1     14470 rs1385614… G     A     N               A     G        0.0402 ADD  \n2 1     49157 rs1999980… G     A     N               A     G        0.0300 ADD  \n3 1     64025 rs1366827… T     C     N               C     T        0.0618 ADD  \n4 1     95978 rs1441941… A     C     N               C     A        0.0196 ADD  \n5 1     97960 rs62642103 A     G     N               G     A        0.0142 ADD  \n6 1     98974 rs12184307 A     G     N               G     A        0.0882 ADD  \n# ℹ 6 more variables: obs_ct &lt;dbl&gt;, beta &lt;dbl&gt;, se &lt;dbl&gt;, t_stat &lt;dbl&gt;,\n#   p &lt;dbl&gt;, errcode &lt;chr&gt;\n\n\nAs explained in the previous chapter, we start by looking at the distribution of our p-values using a histogram:\n\nblood_nocovar |&gt; \n  ggplot(aes(p)) +\n  geom_histogram(binwidth = 0.01)\n\n\n\n\n\n\n\n\nThis looks relatively uniform towards the right-end of the distribution, but there’s quite a sharp skew towards the low end. This may indicate some p-value inflation due to unaccounted confounders.\nWe can better visualise the issue of inflation using a Q-Q plot. For this, we need to calculate the expected p-values, corresponding to our observed ones. We do this in two steps:\n\nSorting our table by p-value, using the arrange() function.\nCreate a new column with as many data points, but uniformly split between 0 and 1 (the “uniform” distribution expectation). We can do this with the ppoints() (“probability points”) function.\n\nNote that due to the very high number of data points (915795 in our case), it is often a good idea to plot a random sample of points, to avoid overloading the plotting device (at best it may be very slow to render the plots, at worse it may crash your R session). As in this case we are particularly interested in the low p-values, we retain all p-values below 0.01 and then randomly sample 5% of the rest.\n\nblood_nocovar |&gt; \n  arrange(p) |&gt; \n  # generate uniformly split points between 0-1\n  # also -log10 transform our p-values\n  mutate(expected = -log10(ppoints(n())), \n         observed = -log10(p)) |&gt; \n  # retain all p-values below 0.001\n  # but only ~5% of those above that threshold\n  filter(p &lt;= 0.001 | (p &gt; 0.001 & runif(n()) &lt; 0.05)) |&gt; \n  ggplot(aes(expected, observed)) +\n  geom_point() +\n  geom_abline()\n\n\n\n\n\n\n\n\nThis plot clearly shows substantial inflation of our p-value distribution, as nearly all points fall above the expected diagonal.\nWe can calculate the so-called inflation factor for our p-values, which is derived from a χ² distribution. An inflation factor of ~1 indicates no inflation, whereas values above that indicate an inflation relative to the null expectation.\nHere is the code to calculate the inflation factor for our p-values:\n\nmedian(qchisq(blood_nocovar$p, df=1, lower.tail = FALSE), na.rm = T)/qchisq(0.5, 1)\n\n[1] 4.049382\n\n\nWe get a value of ~3, which clearly indicates an inflation. This is not surprising, as we already assessed that our data has substantial population structure, which will confound some of our analysis.\nOne way to understand this confounding is to consider the distribution of our trait across world regions. The code below reads the phenotype and sample metadata tables, and joins them together to generate a boxplot of blood pressure across countries.\n\npheno &lt;- read_tsv(\"data/phenotypes.tsv\")\nsample_info &lt;- read_tsv(\"data/sample_info.tsv\")\n\nsample_info |&gt; \n  full_join(pheno, by = c(\"individual_id\" = \"IID\")) |&gt; \n  ggplot(aes(blood, population, fill = super_pop)) +\n  geom_boxplot()\n\n\n\n\n\n\n\n\nAs we can see, there are differences in the mean blood pressure of different populations. This means that any genetic differences between those populations (due to non-random mating, drift, selection, etc.) may show as “significant” associations with blood pressure, causing false positives.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Running GWAS</span>"
+    ]
+  },
+  {
+    "objectID": "materials/07-glm.html#adjusting-for-population-structure",
+    "href": "materials/07-glm.html#adjusting-for-population-structure",
+    "title": "9  Running GWAS",
+    "section": "9.3 Adjusting for population structure",
+    "text": "9.3 Adjusting for population structure\nTo avoid the confounding due to population structure, we can add the PCA scores as covariates to our GLM. This is done using the --covar option:\nplink2 --pfile data/plink/1000G_subset --out results/1000G_subset_pca \\\n  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \\\n  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \\\n  --pheno data/phenotypes.tsv \\\n  --glm \\\n  --covar results/1000G_subset.eigenvec\nAs before, we import our results and re-assess the issue of p-value inflation.\n\n# import the results table\nblood_covar &lt;- read_tsv(\"results/1000G_subset_pca.blood.glm.linear\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n\nhead(blood_covar)\n\n# A tibble: 6 × 16\n  chrom   pos id         ref   alt   provisional_ref a1    omitted a1_freq test \n  &lt;chr&gt; &lt;dbl&gt; &lt;chr&gt;      &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;           &lt;chr&gt; &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;\n1 1     14470 rs1385614… G     A     N               A     G        0.0402 ADD  \n2 1     14470 rs1385614… G     A     N               A     G        0.0402 PC1  \n3 1     14470 rs1385614… G     A     N               A     G        0.0402 PC2  \n4 1     14470 rs1385614… G     A     N               A     G        0.0402 PC3  \n5 1     14470 rs1385614… G     A     N               A     G        0.0402 PC4  \n6 1     14470 rs1385614… G     A     N               A     G        0.0402 PC5  \n# ℹ 6 more variables: obs_ct &lt;dbl&gt;, beta &lt;dbl&gt;, se &lt;dbl&gt;, t_stat &lt;dbl&gt;,\n#   p &lt;dbl&gt;, errcode &lt;chr&gt;\n\n\nYou may notice that this table, while similar to the previous before, has many more rows. This is because we now have 10 covariates (each of the principal components from our PCA), and PLINK reports the statistical test for their association with the trait, in addition to the genotype association. This is indicated in the test column:\n\n# get the unique values in the \"test\" column\nunique(blood_covar$test)\n\n [1] \"ADD\"  \"PC1\"  \"PC2\"  \"PC3\"  \"PC4\"  \"PC5\"  \"PC6\"  \"PC7\"  \"PC8\"  \"PC9\" \n[11] \"PC10\" \"SEX\" \n\n\nWe have test results for each PC as well as a test labelled “ADD”. This refers to the “additive genotypic effect”, which is what we are interested in. As we are not interested in the association between PCs and our trait, we exclude them from the table in downstream analysis:\n\n# retain only the SNP test\nblood_covar &lt;- blood_covar |&gt; \n  filter(test == \"ADD\")\n\nWe can now make the same p-value diagnostic plots as before:\n\n# histogram of p-values\nblood_covar |&gt; \n  arrange(p) |&gt; \n  mutate(expected = -log10(ppoints(n())), \n         observed = -log10(p)) |&gt; \n  filter(p &lt;= 0.001 | (p &gt; 0.001 & runif(n()) &lt; 0.01)) |&gt; \n  ggplot(aes(p)) +\n  geom_histogram(binwidth = 0.01) +\n  labs(title = \"P-value histogram\")\n\n\n\n\n\n\n\n# qqplot\nblood_covar |&gt; \n  arrange(p) |&gt; \n  mutate(expected = -log10(ppoints(n())), \n         observed = -log10(p)) |&gt; \n  filter(p &lt;= 0.001 | (p &gt; 0.001 & runif(n()) &lt; 0.01)) |&gt; \n  ggplot(aes(expected, observed)) +\n  geom_point() +\n  geom_abline() + \n  labs(title = \"Q-Q plot\")\n\n\n\n\n\n\n\n\nFrom the visualisations above, we can see the issue of p-value inflation seems to have been resolved, as most points in the Q-Q plot seem to fall in the line. We can also calculate the inflation factor, which confirms this:\n\nmedian(qchisq(blood_covar$p, df=1, lower.tail = F), na.rm = T)/qchisq(0.5, 1)\n\n[1] 1.016059\n\n\nThe value is now ~1, indicating no major issues.\nThe histogram and Q-Q plot also reveal an excess of very low p-values, which is a sign we have some significant (true) associations. The next chapter explores how we can visualise these potential associations across our genome.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Running GWAS</span>"
+    ]
+  },
+  {
+    "objectID": "materials/07-glm.html#summary",
+    "href": "materials/07-glm.html#summary",
+    "title": "9  Running GWAS",
+    "section": "9.4 Summary",
+    "text": "9.4 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nThe --glm option in PLINK can be used to fit a generalised linear model to the trait data.\n\nThis option automatically detects whether the trait(s) provided are binary or quantitative.\n\nQ-Q plots are an essential tool to assess p-value inflation in the association results.\nOne method to adjust for population structure is to add the PCA scores as covariates to the linear model.\n\nThe option --covar can be used to give a file of covariate variables to PLINK’s model.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Running GWAS</span>"
+    ]
+  },
+  {
+    "objectID": "materials/08-manhattan.html",
+    "href": "materials/08-manhattan.html",
+    "title": "10  Visualising association results",
+    "section": "",
+    "text": "10.1 Manhattan plots\nThe most iconic data visualisation related to GWAS is the so-called Manhattan plot, which displays each variant as a point, with its genome position along the x-axis and its associated -log₁₀(p-value) on the y-axis. Significant associations show as “peaks” passing through the genome-wide significance threshold, represented as a horizontal line. Additionally, each chromosome is shown a separate panel, giving a complete genome-wide view of the association results.\nIn this section we show how to produce this and other visualisations of our association test results in R.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Visualising association results</span>"
+    ]
+  },
+  {
+    "objectID": "materials/08-manhattan.html#manhattan-plots",
+    "href": "materials/08-manhattan.html#manhattan-plots",
+    "title": "10  Visualising association results",
+    "section": "",
+    "text": "ImportantSet up your R session\n\n\n\nIf you haven’t done so already, start an R session with the following packages loaded:\n\n# load the libraries\nlibrary(tidyverse) # data manipulation\nlibrary(patchwork) # to compose plots\nlibrary(janitor)   # to clean column names\ntheme_set(theme_minimal()) # change default ggplot2 theme\n\nAs an example, we will continue with the results for the “blood pressure” trait. Here is how to read it into R, if you haven’t done so already:\n\n# read the association test results including PCA covariates\nblood_covar &lt;- read_tsv(\"results/1000G_subset_pca.blood.glm.linear\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n\n# retain only the SNP test\nblood_covar &lt;- blood_covar |&gt; \n  filter(test == \"ADD\")",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Visualising association results</span>"
+    ]
+  },
+  {
+    "objectID": "materials/08-manhattan.html#visualise-gwas-results-with-ggplot2",
+    "href": "materials/08-manhattan.html#visualise-gwas-results-with-ggplot2",
+    "title": "10  Visualising association results",
+    "section": "10.2 Visualise GWAS results with ggplot2",
+    "text": "10.2 Visualise GWAS results with ggplot2\nTo make our Manhattan plot, we can use standard ggplot2 functionality. We use several features of this plotting library to make our plot more effective (see box below for details).\n\n\n\n\n\n\nNoteggplot2 code explanation\n\n\n\n\n\nHere is the break down of our plotting code:\n\nfilter() is used to retain only p-values below 0.01 before plotting. This is done to reduce the number of points being plotted, to avoid crashing the plotting device. As we are not interested in high p-values, we retain only those below 0.01.\nggplot() initiates the plot, with genome position as the x-axis and the -log₁₀(p-value) as our y-axis.\ngeom_point() displays points on the plot.\ngeom_hline() adds a horizontal line at the genome-wide significance threshold of \\(5 \\times 10^{-8}\\), which is often used in human GWAS.\nfacet_grid() splits the plot into panels, one per chromosome. We split the facets by “column”, and we make sure that both the scale and the space allocated to each facet is allowed to vary for each chromosome. Finally, we switch the facet labels to appear at the bottom of the plot, for aesthetic reasons. You can try removing those options to see what happens.\nlabs() is used to edit the x-axis label and add a title to the plot.\ntheme_minimal() and theme() are used together to make the plot more aesthetically pleasing, by removing x-axis labels, tick marks and gridlines.\n\nTo save time, you can save some of this code in a variable, for example:\n\nmanhattan_theme &lt;- theme_minimal() +\n  theme(\n    axis.text.x = element_blank(),\n    axis.ticks.x = element_blank(),\n    panel.grid = element_blank(),\n    panel.spacing = unit(0.1, \"lines\"),\n    strip.background = element_blank()\n  )\n\n\n\n\n\nblood_covar |&gt; \n  filter(p &lt; 0.01) |&gt; \n  ggplot(aes(pos, -log10(p))) +\n  geom_point() +\n  geom_hline(yintercept = -log10(5e-8), linetype = \"dashed\") +\n  facet_grid(~ chrom, \n             scale = \"free_x\", \n             space = \"free_x\",\n             switch = \"x\") +\n  labs(x = \"Chromosome\", \n       title = \"Manhattan plot\") +\n  theme_minimal() +\n  theme(\n    axis.text.x = element_blank(),\n    axis.ticks.x = element_blank(),\n    panel.grid = element_blank(),\n    panel.spacing = unit(0.1, \"lines\"),\n    strip.background = element_blank()\n  )\n\n\n\n\n\n\n\n\nThe plot shows a genome-wide significant association in chromosome 5. There are other regions that seem to contain peaks of association (e.g. on chromosomes 10 and 12), but these do not pass the genome-wide threshold.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Visualising association results</span>"
+    ]
+  },
+  {
+    "objectID": "materials/08-manhattan.html#regional-plots",
+    "href": "materials/08-manhattan.html#regional-plots",
+    "title": "10  Visualising association results",
+    "section": "10.3 Regional plots",
+    "text": "10.3 Regional plots\nNow that we have found an association with our trait, we may want to investigate it further. One common visalisation is to make a “regional plot”, where we zoom-in on a SNV of interest and make a Manhattan plot, colouring the points by the linkage coefficient to the target SNP.\nFirst, let’s identify our top-most associated SNV:\n\nblood_covar |&gt;\n  arrange(p) |&gt;\n  select(chrom, pos, id, beta, p)\n\n# A tibble: 894,951 × 5\n   chrom       pos id           beta           p\n   &lt;chr&gt;     &lt;dbl&gt; &lt;chr&gt;       &lt;dbl&gt;       &lt;dbl&gt;\n 1 2     205946921 rs12478185  -1.52 0.000000563\n 2 2     205953670 rs2080568   -1.34 0.00000271 \n 3 2     205951616 rs74833355  -1.34 0.00000295 \n 4 11    130401752 rs747249     1.20 0.00000330 \n 5 4      82532964 rs146781081 -3.70 0.00000333 \n 6 2     205953651 rs2080567   -1.31 0.00000350 \n 7 11    130410772 rs4936098    1.17 0.00000494 \n 8 2      67699363 rs62155373   1.04 0.00000678 \n 9 19     50295975 rs6509462    1.27 0.00000682 \n10 2     205955435 rs76136841  -1.28 0.00000730 \n# ℹ 894,941 more rows\n\n\nWe can see at the top we have two SNPs with the same estimated β coefficient and p-value. These must be two SNVs that have the same genotype across all individuals (i.e. they are in perfect linkage). We arbitrarily choose “rs1158715” to proceed with our analysis.\nWe can calculate the linkage score for our target SNP using PLINK:\nplink2 --pfile data/plink/1000G_subset --out results/1000G_subset_rs1158715 \\\n  --geno 0.05 --maf 0.01 --hwe 0.001 keep-fewhet \\\n  --mind 0.05 --keep results/1000G_subset.king.cutoff.in.id \\\n  --r2-unphased --ld-snp rs1158715 \\\n  --ld-window-kb 500 --ld-window-r2 0.05\n\n--r2-unphased calculates the correlation between pairs of SNVs.\n--ld-snp indicates which is the target SNV we are interested in.\n--ld-window-kb restricts the calculation to SNVs within 500 kbp of the target SNV.\n--ld-window-r2 indicates what is the minimum r² we want reported. By default this is 0.2, here we lower this threshold for illustration purposes. In real analysis, it may be sensible to truncate the calculation at 0.2, to reduce the size of the output file.\n\nThe --r2-unphased option outputs a file with .vcor (variant correlation) extension. As usual, this is a tab-delimited file, which we can read into R:\n\nrs1158715 &lt;- read_tsv(\"results/1000G_subset_rs1158715.vcor\") |&gt; \n  clean_names(replace = c(\"#\" = \"\"))\n  \nhead(rs1158715)\n\n# A tibble: 6 × 7\n  chrom_a    pos_a id_a      chrom_b    pos_b id_b        unphased_r2\n    &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;       &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;             &lt;dbl&gt;\n1       5 32788263 rs1158715       5 32499983 rs2594825        0.0697\n2       5 32788263 rs1158715       5 32525916 rs10075706       0.0703\n3       5 32788263 rs1158715       5 32584224 rs75601756       0.0622\n4       5 32788263 rs1158715       5 32590736 rs144639299      0.0501\n5       5 32788263 rs1158715       5 32592855 rs16889957       0.0501\n6       5 32788263 rs1158715       5 32596810 rs11952873       0.0501\n\n\nThe table contains the correlation between genotypes in our SNV of interest (id_a) and each other SNV (id_b) within 500 kbp of it. We can quickly look at the distribution of the correlation values:\n\nrs1158715 |&gt; \n  ggplot(aes(unphased_r2)) +\n  geom_histogram(breaks = seq(0, 1, 0.02))\n\n\n\n\n\n\n\n\nWe can see that most SNVs have low correlation with our target SNP, but a few have very high correlation.\nWe can also see the expected decay in LD with distance from the target SNV:\n\nrs1158715 |&gt; \n  # add column with distance to target variant\n  mutate(dist = abs(pos_a - pos_b)) |&gt; \n  # plot with a trend line added\n  ggplot(aes(dist, unphased_r2)) +\n  geom_point() +\n  geom_smooth(se = FALSE)\n\n\n\n\n\n\n\n\nFinally, we can produce a regional association plot, which displays the strength of association as well as the correlation with the variants surrounding our peak variant. We do this by:\n\nFiltering our GLM results table to focus on the region of interest.\nJoining it with the correlation table (using the matching variant ids)\nProducing a plot with genomic position on the x-axis, -log₁₀(p-value) on the y-axis, and setting the points colour and size by their correlation value.\n\n\nblood_covar |&gt; \n  # retain variants within 250kb each side of our target\n  filter(chrom == 5 & pos &gt; 32788263 - 250e3 & pos &lt; 32788263 + 250e3) |&gt; \n  # join with our LD table\n  left_join(rs1158715, by = c(\"id\" = \"id_b\")) |&gt; \n  # for SNVs with no correlation value (below 0.05)\n  # we set them to 0 for plotting purposes\n  mutate(unphased_r2 = ifelse(is.na(unphased_r2), 0, unphased_r2)) |&gt; \n  # for the target variant itself, we set it to 1\n  mutate(unphased_r2 = ifelse(id == \"rs1158715\", 1, unphased_r2)) |&gt; \n  # plot\n  ggplot(aes(pos, -log10(p))) +\n  geom_point(aes(colour = unphased_r2, size = unphased_r2)) +\n  geom_hline(yintercept = -log10(5e-8), linetype = \"dashed\") +\n  scale_colour_gradient2(low = \"#313695\", \n                         mid = \"#ffffbf\", \n                         high = \"#a50026\", \n                         midpoint = 0.5)\n\n\n\n\n\n\n\n\nThis visualisation clearly shows a cluster of variants in close proximity of the target variant and with high genotype correlation to it.\nThis visualisation is useful not only to display our results, but also to help us prioritise which variants to focus on in downstream analyses.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Visualising association results</span>"
+    ]
+  },
+  {
+    "objectID": "materials/08-manhattan.html#summary",
+    "href": "materials/08-manhattan.html#summary",
+    "title": "10  Visualising association results",
+    "section": "10.4 Summary",
+    "text": "10.4 Summary\n\n\n\n\n\n\nTipKey Points\n\n\n\n\nManhattan plots display the results of the association tests for each variant:\n\nEach variant is displayed along the x-axis according to its genome position.\nThe y-axis shows the strenght of association as -log₁₀(p-value).\n\nManhattan plots can be produced using standard ggplot2 functionality, in particular taking advantage of the facet_grid() function and custom themes.\nOnce a variant of interest is identified, its correlation with neighbouring variants can be calculated (a measure of LD between neighbouring variants).\n\nA combination of PLINK’s options can be used to calculate LD around a target variant: --r2-unphased, --ld-snp, --ld-window-kb and --ld-window-r2.\n\nRegional association plots are a zoomed-in version of a Manhattan plot, additionally displaying the LD with a target variant using a colour scale.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "GWAS analysis",
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Visualising association results</span>"
+    ]
+  },
+  {
+    "objectID": "versions.html",
+    "href": "versions.html",
+    "title": "Archived Versions",
+    "section": "",
+    "text": "Caution\n\n\n\nThese materials are still under development\n\nSelect a version to view the course materials as they were at that time.\nEach version represents a snapshot of the course materials at a specific point in time. This allows participants to access the exact version of the materials they used during their course, even as the content continues to evolve.\nThe latest version always contains the most up-to-date content and improvements.",
+    "crumbs": [
+      "{{< iconify fa6-brands github size=lg title='CRIT GitHub' >}}",
+      "Appendices",
+      "Archived Versions"
+    ]
+  }
+]
